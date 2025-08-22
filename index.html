@@ -521,7 +521,235 @@
             </div>
         </div>
         
-        <!-- Settings screen will be loaded dynamically -->
+        <div id="settingsScreen" class="hidden">
+            <h2 style="text-align: center; color: #4CAF50; margin-bottom: 20px;">⚙️ Game Settings</h2>
+            
+            <div class="settings-section">
+                <h3>🚗 Tank Properties</h3>
+                <div class="setting-item">
+                    <label>Tank Speed:</label>
+                    <input type="number" id="tankSpeed" step="0.1" min="0.5" max="5">
+                </div>
+                <div class="setting-item">
+                    <label>Tank Turn Speed:</label>
+                    <input type="number" id="tankTurnSpeed" step="0.005" min="0.01" max="0.1">
+                </div>
+                <div class="setting-item">
+                    <label>Tank Size:</label>
+                    <input type="number" id="tankSize" step="1" min="20" max="50">
+                </div>
+                <div class="setting-item">
+                    <label>Special Ammo Count:</label>
+                    <input type="number" id="specialAmmo" step="1" min="1" max="20">
+                </div>
+                <div class="setting-item">
+                    <label>Reload Time (frames):</label>
+                    <input type="number" id="reloadTime" step="5" min="10" max="180">
+                </div>
+            </div>
+            
+            <div class="settings-section">
+                <h3>🔫 Bullet Properties</h3>
+                <div class="setting-item">
+                    <label>Bullet Speed:</label>
+                    <input type="number" id="bulletSpeed" step="0.5" min="1" max="10">
+                </div>
+                <div class="setting-item">
+                    <label>Bullet Size:</label>
+                    <input type="number" id="bulletSize" step="1" min="2" max="10">
+                </div>
+                <div class="setting-item">
+                    <label>Bullet Lifetime (frames):</label>
+                    <input type="number" id="bulletLifetime" step="30" min="60" max="600">
+                </div>
+            </div>
+            
+            <div class="settings-section">
+                <h3>⚡ Power-up Properties</h3>
+                <div class="setting-item">
+                    <label>Power-up Count:</label>
+                    <input type="number" id="powerupCount" step="1" min="1" max="10">
+                </div>
+                <div class="setting-item">
+                    <label>Power-up Size:</label>
+                    <input type="number" id="powerupSize" step="1" min="15" max="40">
+                </div>
+                <div class="setting-item">
+                    <label>Respawn Time (frames):</label>
+                    <input type="number" id="powerupRespawn" step="30" min="60" max="900">
+                </div>
+            </div>
+            
+            <div class="settings-section">
+                <h3>🎮 Game Mechanics</h3>
+                <div class="setting-item">
+                    <label>Grace Period (frames):</label>
+                    <input type="number" id="gracePeriod" step="30" min="60" max="600">
+                </div>
+                <div class="setting-item">
+                    <label>AI Tank Count:</label>
+                    <input type="number" id="aiCount" step="1" min="1" max="7">
+                </div>
+                <div class="setting-item">
+                    <label>Collectible Count:</label>
+                    <input type="number" id="collectibleCount" step="1" min="1" max="10">
+                </div>
+            </div>
+            
+            <div class="settings-section">
+                <h3>🔥 Ring of Fire</h3>
+                <div class="setting-item">
+                    <label>Enable Ring of Fire:</label>
+                    <input type="checkbox" id="ringEnabled" checked>
+                </div>
+                <div class="setting-item">
+                    <label>Warning Time (seconds):</label>
+                    <input type="number" id="ringWarning" step="5" min="10" max="120">
+                </div>
+                <div class="setting-item">
+                    <label>Safe Zone Size (%):</label>
+                    <input type="number" id="ringSafeZone" step="5" min="5" max="50">
+                </div>
+            </div>
+            
+            <div class="settings-section">
+                <h3>⚔️ Game Rules</h3>
+                <div class="setting-item">
+                    <label>Friendly Fire:</label>
+                    <input type="checkbox" id="friendlyFire">
+                </div>
+            </div>
+            
+            <div class="settings-section">
+                <h3>🎨 Player Colors</h3>
+                <div class="setting-item">
+                    <label>Player 1 Primary Color:</label>
+                    <input type="color" id="player1Color" value="#4CAF50">
+                </div>
+                <div class="setting-item">
+                    <label>Player 1 Secondary Color:</label>
+                    <input type="color" id="player1SecondaryColor" value="#2E7D32">
+                </div>
+                <div class="setting-item">
+                    <label>Player 2 Primary Color:</label>
+                    <input type="color" id="player2Color" value="#ff9800">
+                </div>
+                <div class="setting-item">
+                    <label>Player 2 Secondary Color:</label>
+                    <input type="color" id="player2SecondaryColor" value="#E65100">
+                </div>
+            </div>
+            
+            <div class="settings-section">
+                <h3>🎯 Training Mode Settings</h3>
+                <div class="setting-item">
+                    <label>Stationary Targets:</label>
+                    <input type="number" id="trainingStationaryTargets" step="1" min="0" max="10">
+                </div>
+                <div class="setting-item">
+                    <label>Moving Targets:</label>
+                    <input type="number" id="trainingMovingTargets" step="1" min="0" max="10">
+                </div>
+                <div class="setting-item">
+                    <label>Target Health:</label>
+                    <input type="number" id="trainingTargetHealth" step="1" min="1" max="10">
+                </div>
+                <div class="setting-item">
+                    <label>Target Size:</label>
+                    <input type="number" id="trainingTargetSize" step="1" min="15" max="50">
+                </div>
+                <div class="setting-item">
+                    <label>Target Respawn Time (frames):</label>
+                    <input type="number" id="trainingTargetRespawn" step="30" min="60" max="600">
+                </div>
+                <div class="setting-item">
+                    <label>Moving Target Speed:</label>
+                    <input type="number" id="trainingMovingSpeed" step="0.1" min="0.5" max="3">
+                </div>
+                <div class="setting-item">
+                    <label>Moving Target Range:</label>
+                    <input type="number" id="trainingMovingRange" step="10" min="50" max="300">
+                </div>
+            </div>
+            
+            <div class="settings-section">
+                <h3>🤖 Drone Settings</h3>
+                <div class="setting-item">
+                    <label>Drone Size:</label>
+                    <input type="number" id="droneSize" step="1" min="8" max="20">
+                </div>
+                <div class="setting-item">
+                    <label>Drone Speed:</label>
+                    <input type="number" id="droneSpeed" step="0.1" min="0.5" max="3">
+                </div>
+                <div class="setting-item">
+                    <label>Drone Orbit Distance:</label>
+                    <input type="number" id="droneOrbitDistance" step="5" min="30" max="120">
+                </div>
+                <div class="setting-item">
+                    <label>Drone Health:</label>
+                    <input type="number" id="droneHealth" step="1" min="1" max="10">
+                </div>
+                <div class="setting-item">
+                    <label>Drone Reload Time (frames):</label>
+                    <input type="number" id="droneReloadTime" step="10" min="30" max="180">
+                </div>
+                <div class="setting-item">
+                    <label>Drone Bullet Speed:</label>
+                    <input type="number" id="droneBulletSpeed" step="0.1" min="1" max="5">
+                </div>
+                <div class="setting-item">
+                    <label>Drone Bullet Size:</label>
+                    <input type="number" id="droneBulletSize" step="1" min="2" max="8">
+                </div>
+                <div class="setting-item">
+                    <label>Drone Target Range:</label>
+                    <input type="number" id="droneTargetRange" step="10" min="80" max="300">
+                </div>
+                <div class="setting-item">
+                    <label>Drone Orbit Speed:</label>
+                    <input type="number" id="droneOrbitSpeed" step="0.005" min="0.005" max="0.05">
+                </div>
+            </div>
+            
+            <div class="settings-section">
+                <h3>🎯 Allowed Power-up Types</h3>
+                <div class="setting-item">
+                    <label>💥 Scatter Shot:</label>
+                    <input type="checkbox" id="powerup_scatter" checked>
+                </div>
+                <div class="setting-item">
+                    <label>⚡ Laser Beam:</label>
+                    <input type="checkbox" id="powerup_laser" checked>
+                </div>
+                <div class="setting-item">
+                    <label>🚀 Rocket:</label>
+                    <input type="checkbox" id="powerup_rocket" checked>
+                </div>
+                <div class="setting-item">
+                    <label>💣 Explosive:</label>
+                    <input type="checkbox" id="powerup_explosive" checked>
+                </div>
+                <div class="setting-item">
+                    <label>🏹 Piercing:</label>
+                    <input type="checkbox" id="powerup_piercing" checked>
+                </div>
+                <div class="setting-item">
+                    <label>💎 Mine:</label>
+                    <input type="checkbox" id="powerup_mine" checked>
+                </div>
+                <div class="setting-item">
+                    <label>🤖 Combat Drone:</label>
+                    <input type="checkbox" id="powerup_drone" checked>
+                </div>
+            </div>
+            
+            <div class="settings-buttons">
+                <button class="button" onclick="resetToDefaults()">🔄 Reset Defaults</button>
+                <button class="button" onclick="applySettings()">✅ Apply Settings</button>
+                <button class="button" onclick="hideSettings()">❌ Cancel</button>
+            </div>
+        </div>
         
         <div id="scoreBoard" class="hidden">
             <!-- Dynamic tank scores will be inserted here -->

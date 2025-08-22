@@ -30,6 +30,7 @@ let roundStartTime = 0;
 let roundResetting = false;
 let gameWinner = null;
 let graceTimer = 0;
+let collectibleSpawnTimer = 0;
 
 // Player colors (can be modified by settings)
 let PLAYER1_COLOR = '#4CAF50';
@@ -1773,7 +1774,7 @@ class Collectible {
                 pointsElement.textContent = points[`player${tank.playerNum}`];
             }
             this.collected = true;
-            this.respawnTimer = 150;
+            this.respawnTimer = CONFIG.COLLECTIBLE_RESPAWN_TIME;
             
             // Create particle effect
             for (let i = 0; i < 10; i++) {
@@ -1789,9 +1790,9 @@ class Collectible {
         
         const bob = Math.sin(Date.now() / 300 + this.bobOffset) * 3;
         
-        // Glow effect
+        // Enhanced glow effect
         ctx.shadowColor = '#00BFFF';
-        ctx.shadowBlur = 15;
+        ctx.shadowBlur = 20 + Math.sin(Date.now() / 200) * 5;
         
         // Outer ring
         ctx.strokeStyle = '#00BFFF';
@@ -1823,6 +1824,24 @@ class Collectible {
         ctx.closePath();
         ctx.fill();
         
+        // Add sparkle effects
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#FFFFFF';
+        const sparkleTime = Date.now() / 100;
+        for (let i = 0; i < 3; i++) {
+            const sparkleAngle = sparkleTime + (i * Math.PI * 2 / 3);
+            const sparkleRadius = 15 + Math.sin(sparkleTime + i) * 5;
+            const sparkleX = this.x + Math.cos(sparkleAngle) * sparkleRadius;
+            const sparkleY = this.y + bob + Math.sin(sparkleAngle) * sparkleRadius;
+            const sparkleSize = 2 + Math.sin(sparkleTime + i * 2) * 1;
+            
+            ctx.globalAlpha = 0.7 + Math.sin(sparkleTime + i) * 0.3;
+            ctx.beginPath();
+            ctx.arc(sparkleX, sparkleY, sparkleSize, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        
+        ctx.globalAlpha = 1;
         ctx.shadowBlur = 0;
     }
 }
@@ -3117,6 +3136,38 @@ function resetCamera() {
     camera.zoomStartTime = 0;
 }
 
+function spawnRandomCollectible() {
+    let attempts = 0;
+    const maxAttempts = 50;
+    
+    while (attempts < maxAttempts) {
+        const x = Math.random() * (canvas.width - 100) + 50;
+        const y = Math.random() * (canvas.height - 100) + 50;
+        
+        const testCollectible = new Collectible(x, y);
+        if (!testCollectible.checkWallCollision()) {
+            // Make sure it's not too close to tanks
+            let tooCloseToTank = false;
+            for (const tank of tanks) {
+                if (tank.alive) {
+                    const distance = Math.sqrt((x - tank.x) ** 2 + (y - tank.y) ** 2);
+                    if (distance < 100) {
+                        tooCloseToTank = true;
+                        break;
+                    }
+                }
+            }
+            
+            if (!tooCloseToTank) {
+                return testCollectible;
+            }
+        }
+        attempts++;
+    }
+    
+    return null; // Failed to find valid position
+}
+
 function selectMapSize(size) {
     mapSize = size;
     
@@ -3252,7 +3303,7 @@ function init() {
     }
     
     // Add blue collectible points
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < CONFIG.COLLECTIBLE_COUNT; i++) {
         let validPosition = false;
         let x, y;
         while (!validPosition) {
@@ -3293,6 +3344,19 @@ function update() {
     
     // Update camera zoom effect
     updateCamera();
+    
+    // Random collectible spawning
+    if (CONFIG.COLLECTIBLE_RANDOM_SPAWN && collectibles.length < CONFIG.COLLECTIBLE_COUNT + 3) {
+        collectibleSpawnTimer++;
+        // Spawn a new collectible every 10-20 seconds randomly
+        if (collectibleSpawnTimer > 600 + Math.random() * 600) {
+            const newCollectible = spawnRandomCollectible();
+            if (newCollectible) {
+                collectibles.push(newCollectible);
+                collectibleSpawnTimer = 0;
+            }
+        }
+    }
     
     // Check for game over - only one tank left standing (skip in training mode)
     const aliveTanks = tanks.filter(t => t.alive);
@@ -3565,25 +3629,8 @@ function gameLoop() {
 
 
 // Settings Screen Functions
-async function showSettings() {
+function showSettings() {
     document.getElementById('startScreen').classList.add('hidden');
-    
-    // Load settings HTML if not already loaded
-    if (!document.getElementById('settingsScreen')) {
-        try {
-            const response = await fetch('settings.html');
-            const settingsHTML = await response.text();
-            
-            // Create a container div and insert the settings HTML
-            const settingsContainer = document.createElement('div');
-            settingsContainer.innerHTML = settingsHTML;
-            document.getElementById('gameContainer').appendChild(settingsContainer.firstElementChild);
-        } catch (error) {
-            console.error('Failed to load settings:', error);
-            return;
-        }
-    }
-    
     document.getElementById('settingsScreen').classList.remove('hidden');
     loadCurrentSettings();
 }

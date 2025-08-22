@@ -76,7 +76,9 @@ const CONFIG = {
     
     // Game Counts
     POWERUP_COUNT: 2,
-    COLLECTIBLE_COUNT: 3,
+    COLLECTIBLE_COUNT: 5, // More collectibles on the map
+    COLLECTIBLE_RESPAWN_TIME: 300, // 5 seconds respawn
+    COLLECTIBLE_RANDOM_SPAWN: true, // Spawn randomly during game
     AI_TANK_COUNT: 3,
     
     // Training Mode Settings
