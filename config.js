@@ -79,6 +79,40 @@ const CONFIG = {
     COLLECTIBLE_COUNT: 3,
     AI_TANK_COUNT: 3,
     
+    // Training Mode Settings
+    TRAINING_STATIONARY_TARGETS: 3,
+    TRAINING_MOVING_TARGETS: 2,
+    TRAINING_TARGET_HEALTH: 3,
+    TRAINING_TARGET_SIZE: 25,
+    TRAINING_TARGET_RESPAWN_TIME: 180, // frames (3 seconds)
+    TRAINING_MOVING_TARGET_SPEED: 1,
+    TRAINING_MOVING_TARGET_RANGE: 100,
+    
+    // Drone Properties
+    DRONE_SIZE: 12,
+    DRONE_SPEED: 1.2,
+    DRONE_ORBIT_DISTANCE: 60,
+    DRONE_HEALTH: 2,
+    DRONE_RELOAD_TIME: 80,
+    DRONE_BULLET_SPEED: 2.5,
+    DRONE_BULLET_SIZE: 3,
+    DRONE_TARGET_RANGE: 150,
+    DRONE_ORBIT_SPEED: 0.02,
+    
+    // Gate Properties
+    GATE_OPEN_TIME: 480, // frames (8 seconds at 60fps)
+    GATE_WARNING_TIME: 120, // frames (2 seconds)
+    GATE_CLOSED_TIME: 120, // frames (2 seconds)
+    GATE_ANIMATION_FRAMES: 30, // frames for opening/closing animation (0.5 seconds)
+    GATE_CRUSH_DAMAGE: 75,
+    GATE_COUNT_MIN: 2,
+    GATE_COUNT_MAX: 3,
+    
+    // Winner Zoom Effect
+    WINNER_ZOOM_SCALE: 3.0, // 3x zoom on winner
+    WINNER_ZOOM_DURATION: 3000, // 3 seconds (matches victory screen)
+    WINNER_ZOOM_TRANSITION_TIME: 2000, // 2 seconds smooth transition
+    
     // Available Power-up Types (can be toggled on/off)
     POWERUP_TYPES: {
         scatter: { enabled: true, name: '💥 Scatter Shot', description: 'Fires 5 bullets in a spread' },
@@ -86,7 +120,8 @@ const CONFIG = {
         rocket: { enabled: true, name: '🚀 Rocket', description: 'Slow but powerful rockets' },
         explosive: { enabled: true, name: '💣 Explosive', description: 'Bullets that explode on impact' },
         piercing: { enabled: true, name: '🏹 Piercing', description: 'Bullets that go through walls' },
-        mine: { enabled: true, name: '💎 Mine', description: 'Drops explosive landmines on the ground' }
+        mine: { enabled: true, name: '💎 Mine', description: 'Drops explosive landmines on the ground' },
+        drone: { enabled: true, name: '🤖 Combat Drone', description: 'Spawns a drone that follows and provides support fire' }
     }
 };
 

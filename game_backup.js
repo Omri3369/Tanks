@@ -22,7 +22,6 @@ let collectibles = [];
 let explosions = [];
 let mines = [];
 let drones = [];
-let targets = [];
 let scores = {};
 let points = {};
 let ringOfFire = null;
@@ -30,12 +29,6 @@ let roundStartTime = 0;
 let roundResetting = false;
 let gameWinner = null;
 let graceTimer = 0;
-
-// Player colors (can be modified by settings)
-let PLAYER1_COLOR = '#4CAF50';
-let PLAYER2_COLOR = '#ff9800';
-let PLAYER1_SECONDARY_COLOR = '#2E7D32';
-let PLAYER2_SECONDARY_COLOR = '#E65100';
 
 // Camera/Zoom system for winner effect
 let camera = {
@@ -49,6 +42,10 @@ let camera = {
     zoomStartTime: 0
 };
 
+// Player colors (can be modified by settings)
+let PLAYER1_COLOR = '#4CAF50';
+let PLAYER2_COLOR = '#ff9800';
+
 // Use CONFIG values (can be modified by settings)
 let TANK_SIZE = CONFIG.TANK_SIZE;
 let TANK_SPEED = CONFIG.TANK_SPEED;
@@ -58,30 +55,14 @@ let BULLET_SIZE = CONFIG.BULLET_SIZE;
 let BULLET_LIFETIME = CONFIG.BULLET_LIFETIME;
 let POWERUP_SIZE = CONFIG.POWERUP_SIZE;
 
-// Initialize AI system
-const aiSystem = new AIBehavior();
-
-// Initialize Input system
-const inputHandler = new InputHandler();
-
-// Game state object for AI
-const gameState = {
-    get tanks() { return tanks; },
-    get walls() { return walls; },
-    get powerUps() { return powerUps; },
-    get bullets() { return bullets; },
-    shootBullet: function(tank) {
-        tank.shoot();
-    }
-};
+const keys = {};
 
 class Tank {
-    constructor(x, y, color, controls, playerNum, secondaryColor = null) {
+    constructor(x, y, color, controls, playerNum) {
         this.x = x;
         this.y = y;
         this.angle = 0;
         this.color = color;
-        this.secondaryColor = secondaryColor || this.generateDefaultSecondaryStatic(color);
         this.controls = controls;
         this.playerNum = playerNum;
         this.alive = true;
@@ -92,7 +73,6 @@ class Tank {
         this.powerUpTime = 0;
         this.specialAmmo = 0; // Special power-up ammo
         this.maxSpecialAmmo = CONFIG.TANK_MAX_SPECIAL_AMMO;
-        this.drone = null; // Combat drone
         this.isAI = false;
         this.aiTarget = null;
         this.aiShootTimer = 0;
@@ -110,16 +90,6 @@ class Tank {
         // Pickup notification
         this.pickupNotification = null;
         this.pickupTimer = 0;
-    }
-    
-    generateDefaultSecondaryStatic(primaryColor) {
-        // Generate a complementary darker color for secondary (static version)
-        if (!primaryColor) return '#333333'; // fallback
-        const hex = primaryColor.replace('#', '');
-        const r = Math.max(0, parseInt(hex.substr(0, 2), 16) - 40);
-        const g = Math.max(0, parseInt(hex.substr(2, 2), 16) - 40);
-        const b = Math.max(0, parseInt(hex.substr(4, 2), 16) - 40);
-        return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
     }
     
     update() {
@@ -142,9 +112,9 @@ class Tank {
             this.turnSpeed = 0;
         } else {
             if (this.isAI) {
-                aiSystem.updateAI(this);
+                this.updateAI();
             } else {
-                inputHandler.handleTankInput(this);
+                this.handleInput();
             }
         }
         
@@ -207,6 +177,26 @@ class Tank {
         }
     }
     
+    handleInput() {
+        this.speed = 0;
+        this.turnSpeed = 0;
+        
+        if (keys[this.controls.up]) {
+            this.speed = TANK_SPEED;
+        }
+        if (keys[this.controls.down]) {
+            this.speed = -TANK_SPEED;
+        }
+        if (keys[this.controls.left]) {
+            this.turnSpeed = -TANK_TURN_SPEED;
+        }
+        if (keys[this.controls.right]) {
+            this.turnSpeed = TANK_TURN_SPEED;
+        }
+        if (keys[this.controls.shoot] && this.reloadTime === 0) {
+            this.shoot();
+        }
+    }
     
     updateAI() {
         if (!this.aiState) {
@@ -837,7 +827,7 @@ class Tank {
         ctx.fillRect(-TANK_SIZE/2, -TANK_SIZE/2, TANK_SIZE, TANK_SIZE);
         
         // Body detail panels
-        ctx.fillStyle = this.darkenColor(this.secondaryColor, 25);
+        ctx.fillStyle = this.darkenColor(this.color, 25);
         ctx.fillRect(-TANK_SIZE/2 + 3, -TANK_SIZE/2 + 3, TANK_SIZE - 6, 3);
         ctx.fillRect(-TANK_SIZE/2 + 3, TANK_SIZE/2 - 6, TANK_SIZE - 6, 3);
         
@@ -893,28 +883,28 @@ class Tank {
         // Enhanced turret with realistic shading
         const turretRadius = TANK_SIZE/3;
         const turretGradient = ctx.createRadialGradient(-3, -3, 0, 0, 0, turretRadius);
-        turretGradient.addColorStop(0, this.lightenColor(this.secondaryColor, 25));
-        turretGradient.addColorStop(0.4, this.secondaryColor);
-        turretGradient.addColorStop(0.8, this.darkenColor(this.secondaryColor, 20));
-        turretGradient.addColorStop(1, this.darkenColor(this.secondaryColor, 45));
+        turretGradient.addColorStop(0, this.lightenColor(this.color, 25));
+        turretGradient.addColorStop(0.4, this.color);
+        turretGradient.addColorStop(0.8, this.darkenColor(this.color, 20));
+        turretGradient.addColorStop(1, this.darkenColor(this.color, 45));
         ctx.fillStyle = turretGradient;
         ctx.beginPath();
         ctx.arc(0, 0, turretRadius, 0, Math.PI * 2);
         ctx.fill();
         
         // Turret ring detail
-        ctx.strokeStyle = this.darkenColor(this.secondaryColor, 35);
+        ctx.strokeStyle = this.darkenColor(this.color, 35);
         ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.arc(0, 0, turretRadius - 2, 0, Math.PI * 2);
         ctx.stroke();
         
         // Commander's hatch with detail
-        ctx.fillStyle = this.darkenColor(this.secondaryColor, 40);
+        ctx.fillStyle = this.darkenColor(this.color, 40);
         ctx.beginPath();
         ctx.arc(-3, -4, turretRadius/2.5, 0, Math.PI * 2);
         ctx.fill();
-        ctx.strokeStyle = this.darkenColor(this.secondaryColor, 60);
+        ctx.strokeStyle = this.darkenColor(this.color, 60);
         ctx.lineWidth = 1;
         ctx.stroke();
         
@@ -1226,16 +1216,6 @@ class Bullet {
         return false;
     }
     
-    checkTargetCollision(target) {
-        if (target.destroyed) return false;
-        const distance = Math.sqrt((this.x - target.x) ** 2 + (this.y - target.y) ** 2);
-        
-        if (distance < target.size) {
-            return true;
-        }
-        return false;
-    }
-    
     applySpecialEffect(tank) {
         switch(this.type) {
             case 'explosive':
@@ -1533,12 +1513,21 @@ class Gate {
         this.openTimer = 480; // 8 seconds open at 60fps
         this.warningTimer = 0;
         this.closedTimer = 0;
-        this.openHeight = height;
-        this.openWidth = width;
-        this.currentHeight = height;
-        this.currentWidth = width;
         this.state = 'open'; // 'open', 'warning', 'closing', 'closed'
         this.crushDamage = 75;
+        
+        // Two-piece wall system
+        if (this.isVertical) {
+            // For vertical gates: top and bottom pieces move toward center
+            this.topPieceHeight = 0;
+            this.bottomPieceHeight = 0;
+            this.maxPieceHeight = height / 2;
+        } else {
+            // For horizontal gates: left and right pieces move toward center
+            this.leftPieceWidth = 0;
+            this.rightPieceWidth = 0;
+            this.maxPieceWidth = width / 2;
+        }
     }
     
     update() {
@@ -1559,17 +1548,19 @@ class Gate {
                 break;
                 
             case 'closing':
-                // Animate gate closing
+                // Animate gate closing - two pieces moving toward center
                 if (this.isVertical) {
-                    this.currentHeight = Math.max(0, this.currentHeight - this.openHeight / 30); // Close over 0.5 seconds
-                    if (this.currentHeight <= 0) {
+                    this.topPieceHeight = Math.min(this.maxPieceHeight, this.topPieceHeight + this.maxPieceHeight / 30);
+                    this.bottomPieceHeight = Math.min(this.maxPieceHeight, this.bottomPieceHeight + this.maxPieceHeight / 30);
+                    if (this.topPieceHeight >= this.maxPieceHeight) {
                         this.state = 'closed';
                         this.closedTimer = 120; // Stay closed for 2 seconds
                         this.checkCrushDamage();
                     }
                 } else {
-                    this.currentWidth = Math.max(0, this.currentWidth - this.openWidth / 30);
-                    if (this.currentWidth <= 0) {
+                    this.leftPieceWidth = Math.min(this.maxPieceWidth, this.leftPieceWidth + this.maxPieceWidth / 30);
+                    this.rightPieceWidth = Math.min(this.maxPieceWidth, this.rightPieceWidth + this.maxPieceWidth / 30);
+                    if (this.leftPieceWidth >= this.maxPieceWidth) {
                         this.state = 'closed';
                         this.closedTimer = 120;
                         this.checkCrushDamage();
@@ -1586,16 +1577,18 @@ class Gate {
                 break;
                 
             case 'opening':
-                // Animate gate opening
+                // Animate gate opening - two pieces moving away from center
                 if (this.isVertical) {
-                    this.currentHeight = Math.min(this.openHeight, this.currentHeight + this.openHeight / 30);
-                    if (this.currentHeight >= this.openHeight) {
+                    this.topPieceHeight = Math.max(0, this.topPieceHeight - this.maxPieceHeight / 30);
+                    this.bottomPieceHeight = Math.max(0, this.bottomPieceHeight - this.maxPieceHeight / 30);
+                    if (this.topPieceHeight <= 0) {
                         this.state = 'open';
                         this.openTimer = 480; // Reset open timer
                     }
                 } else {
-                    this.currentWidth = Math.min(this.openWidth, this.currentWidth + this.openWidth / 30);
-                    if (this.currentWidth >= this.openWidth) {
+                    this.leftPieceWidth = Math.max(0, this.leftPieceWidth - this.maxPieceWidth / 30);
+                    this.rightPieceWidth = Math.max(0, this.rightPieceWidth - this.maxPieceWidth / 30);
+                    if (this.leftPieceWidth <= 0) {
                         this.state = 'open';
                         this.openTimer = 480;
                     }
@@ -1643,7 +1636,7 @@ class Gate {
     
     blocksMovement() {
         return this.state === 'closed' || (this.state === 'closing' && 
-               (this.isVertical ? this.currentHeight < this.openHeight * 0.3 : this.currentWidth < this.openWidth * 0.3));
+               (this.isVertical ? this.topPieceHeight > this.maxPieceHeight * 0.7 : this.leftPieceWidth > this.maxPieceWidth * 0.7));
     }
     
     draw() {
@@ -1660,27 +1653,43 @@ class Gate {
             }
         }
         
-        // Gate opening area
+        // Gate opening area (shows available passage)
         if (this.state !== 'closed') {
             ctx.fillStyle = 'rgba(0, 255, 0, 0.1)';
             if (this.isVertical) {
-                ctx.fillRect(this.x, this.y + (this.openHeight - this.currentHeight), this.width, this.currentHeight);
+                // Open area between top and bottom pieces
+                const openAreaHeight = this.height - this.topPieceHeight - this.bottomPieceHeight;
+                if (openAreaHeight > 0) {
+                    ctx.fillRect(this.x, this.y + this.topPieceHeight, this.width, openAreaHeight);
+                }
             } else {
-                ctx.fillRect(this.x + (this.openWidth - this.currentWidth), this.y, this.currentWidth, this.height);
+                // Open area between left and right pieces
+                const openAreaWidth = this.width - this.leftPieceWidth - this.rightPieceWidth;
+                if (openAreaWidth > 0) {
+                    ctx.fillRect(this.x + this.leftPieceWidth, this.y, openAreaWidth, this.height);
+                }
             }
         }
         
-        // Gate walls (the solid parts)
+        // Gate walls (the two moving pieces)
         ctx.fillStyle = '#444';
         if (this.isVertical) {
-            // Top part
-            if (this.openHeight - this.currentHeight > 0) {
-                ctx.fillRect(this.x, this.y, this.width, this.openHeight - this.currentHeight);
+            // Top piece
+            if (this.topPieceHeight > 0) {
+                ctx.fillRect(this.x, this.y, this.width, this.topPieceHeight);
+            }
+            // Bottom piece
+            if (this.bottomPieceHeight > 0) {
+                ctx.fillRect(this.x, this.y + this.height - this.bottomPieceHeight, this.width, this.bottomPieceHeight);
             }
         } else {
-            // Left part  
-            if (this.openWidth - this.currentWidth > 0) {
-                ctx.fillRect(this.x, this.y, this.openWidth - this.currentWidth, this.height);
+            // Left piece
+            if (this.leftPieceWidth > 0) {
+                ctx.fillRect(this.x, this.y, this.leftPieceWidth, this.height);
+            }
+            // Right piece
+            if (this.rightPieceWidth > 0) {
+                ctx.fillRect(this.x + this.width - this.rightPieceWidth, this.y, this.rightPieceWidth, this.height);
             }
         }
         
@@ -1865,17 +1874,6 @@ class PowerUp {
             tank.powerUp = this.type;
             tank.powerUpTime = 600;
             tank.specialAmmo = tank.maxSpecialAmmo; // Give 5 special shots
-            
-            // Special handling for drone power-up
-            if (this.type === 'drone') {
-                // Remove existing drone if any
-                if (tank.drone && tank.drone.alive) {
-                    tank.drone.alive = false;
-                }
-                // Create new drone
-                tank.drone = new Drone(tank);
-                drones.push(tank.drone);
-            }
             
             // Trigger pickup notification
             tank.pickupNotification = getPowerUpSymbol(this.type);
@@ -2296,329 +2294,6 @@ class Mine {
     }
 }
 
-class Target {
-    constructor(x, y, type = 'stationary') {
-        this.x = x;
-        this.y = y;
-        this.size = CONFIG.TRAINING_TARGET_SIZE;
-        this.type = type; // 'stationary' or 'moving'
-        this.health = CONFIG.TRAINING_TARGET_HEALTH;
-        this.maxHealth = CONFIG.TRAINING_TARGET_HEALTH;
-        this.destroyed = false;
-        this.respawnTimer = 0;
-        this.respawnDelay = CONFIG.TRAINING_TARGET_RESPAWN_TIME;
-        
-        // Moving target properties
-        if (type === 'moving') {
-            this.speed = CONFIG.TRAINING_MOVING_TARGET_SPEED;
-            this.direction = Math.random() * Math.PI * 2;
-            this.changeDirectionTimer = 0;
-            this.changeDirectionDelay = 120; // 2 seconds
-            this.originalX = x;
-            this.originalY = y;
-            this.maxDistance = CONFIG.TRAINING_MOVING_TARGET_RANGE; // Maximum distance from spawn point
-        }
-    }
-    
-    update() {
-        if (this.destroyed) {
-            this.respawnTimer++;
-            if (this.respawnTimer >= this.respawnDelay) {
-                this.respawn();
-            }
-            return;
-        }
-        
-        if (this.type === 'moving') {
-            // Update direction change timer
-            this.changeDirectionTimer++;
-            if (this.changeDirectionTimer >= this.changeDirectionDelay) {
-                this.direction = Math.random() * Math.PI * 2;
-                this.changeDirectionTimer = 0;
-            }
-            
-            // Calculate new position
-            const newX = this.x + Math.cos(this.direction) * this.speed;
-            const newY = this.y + Math.sin(this.direction) * this.speed;
-            
-            // Check if we're too far from original position
-            const distanceFromOrigin = Math.sqrt(
-                Math.pow(newX - this.originalX, 2) + Math.pow(newY - this.originalY, 2)
-            );
-            
-            if (distanceFromOrigin > this.maxDistance) {
-                // Turn towards origin
-                this.direction = Math.atan2(this.originalY - this.y, this.originalX - this.x);
-            }
-            
-            // Check wall collision
-            if (!this.checkWallCollision(newX, newY)) {
-                this.x = newX;
-                this.y = newY;
-            } else {
-                // Bounce off walls
-                this.direction = this.direction + Math.PI + (Math.random() - 0.5) * 0.5;
-            }
-        }
-    }
-    
-    checkWallCollision(x, y) {
-        for (const wall of walls) {
-            if (x + this.size > wall.x && x - this.size < wall.x + wall.width &&
-                y + this.size > wall.y && y - this.size < wall.y + wall.height) {
-                return true;
-            }
-        }
-        return false;
-    }
-    
-    takeDamage() {
-        if (this.destroyed) return;
-        
-        this.health--;
-        if (this.health <= 0) {
-            this.destroyed = true;
-            this.respawnTimer = 0;
-            
-            // Create explosion effect
-            particles.push(new Explosion(this.x, this.y, 30));
-        }
-    }
-    
-    respawn() {
-        this.destroyed = false;
-        this.health = this.maxHealth;
-        this.respawnTimer = 0;
-        
-        if (this.type === 'moving') {
-            this.x = this.originalX;
-            this.y = this.originalY;
-            this.direction = Math.random() * Math.PI * 2;
-        }
-    }
-    
-    draw(ctx) {
-        if (this.destroyed) return;
-        
-        ctx.save();
-        
-        // Target body
-        const healthPercent = this.health / this.maxHealth;
-        if (this.type === 'stationary') {
-            // Bullseye target
-            ctx.fillStyle = healthPercent > 0.6 ? '#ff4444' : '#cc3333';
-            ctx.beginPath();
-            ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-            ctx.fill();
-            
-            // Bullseye rings
-            ctx.strokeStyle = '#ffffff';
-            ctx.lineWidth = 3;
-            for (let i = 1; i <= 3; i++) {
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, this.size * (i / 3), 0, Math.PI * 2);
-                ctx.stroke();
-            }
-            
-            // Center dot
-            ctx.fillStyle = '#ffffff';
-            ctx.beginPath();
-            ctx.arc(this.x, this.y, 4, 0, Math.PI * 2);
-            ctx.fill();
-        } else {
-            // Moving target - diamond shape
-            ctx.fillStyle = healthPercent > 0.6 ? '#4444ff' : '#3333cc';
-            ctx.beginPath();
-            ctx.moveTo(this.x, this.y - this.size);
-            ctx.lineTo(this.x + this.size, this.y);
-            ctx.lineTo(this.x, this.y + this.size);
-            ctx.lineTo(this.x - this.size, this.y);
-            ctx.closePath();
-            ctx.fill();
-            
-            // Inner diamond
-            ctx.fillStyle = '#ffffff';
-            ctx.beginPath();
-            ctx.moveTo(this.x, this.y - this.size * 0.5);
-            ctx.lineTo(this.x + this.size * 0.5, this.y);
-            ctx.lineTo(this.x, this.y + this.size * 0.5);
-            ctx.lineTo(this.x - this.size * 0.5, this.y);
-            ctx.closePath();
-            ctx.fill();
-        }
-        
-        // Health indicator
-        if (this.health < this.maxHealth) {
-            ctx.fillStyle = '#ff0000';
-            ctx.fillRect(this.x - this.size, this.y - this.size - 10, 
-                        (this.size * 2) * healthPercent, 4);
-            ctx.strokeStyle = '#ffffff';
-            ctx.lineWidth = 1;
-            ctx.strokeRect(this.x - this.size, this.y - this.size - 10, this.size * 2, 4);
-        }
-        
-        ctx.restore();
-    }
-}
-
-class Drone {
-    constructor(owner) {
-        this.owner = owner;
-        this.x = owner.x;
-        this.y = owner.y;
-        this.size = CONFIG.DRONE_SIZE;
-        this.health = CONFIG.DRONE_HEALTH;
-        this.maxHealth = CONFIG.DRONE_HEALTH;
-        this.alive = true;
-        this.orbitAngle = Math.random() * Math.PI * 2;
-        this.orbitDistance = CONFIG.DRONE_ORBIT_DISTANCE;
-        this.reloadTime = 0;
-        this.target = null;
-        this.targetingRange = CONFIG.DRONE_TARGET_RANGE;
-    }
-    
-    update() {
-        if (!this.alive || !this.owner.alive) {
-            this.alive = false;
-            return;
-        }
-        
-        // Orbit around owner
-        this.orbitAngle += CONFIG.DRONE_ORBIT_SPEED;
-        this.x = this.owner.x + Math.cos(this.orbitAngle) * this.orbitDistance;
-        this.y = this.owner.y + Math.sin(this.orbitAngle) * this.orbitDistance;
-        
-        // Update reload timer
-        if (this.reloadTime > 0) {
-            this.reloadTime--;
-        }
-        
-        // Find nearest enemy tank
-        this.target = this.findNearestEnemy();
-        
-        // Auto-shoot at target
-        if (this.target && this.reloadTime === 0) {
-            this.shootAtTarget();
-            this.reloadTime = CONFIG.DRONE_RELOAD_TIME;
-        }
-    }
-    
-    findNearestEnemy() {
-        let nearestEnemy = null;
-        let nearestDistance = this.targetingRange;
-        
-        for (const tank of tanks) {
-            if (tank === this.owner || !tank.alive) continue;
-            
-            const distance = Math.sqrt(
-                Math.pow(this.x - tank.x, 2) + Math.pow(this.y - tank.y, 2)
-            );
-            
-            if (distance < nearestDistance) {
-                nearestDistance = distance;
-                nearestEnemy = tank;
-            }
-        }
-        
-        return nearestEnemy;
-    }
-    
-    shootAtTarget() {
-        if (!this.target) return;
-        
-        // Calculate angle to target
-        const angle = Math.atan2(this.target.y - this.y, this.target.x - this.x);
-        
-        // Create bullet
-        const bullet = new Bullet(
-            this.x,
-            this.y,
-            angle,
-            CONFIG.DRONE_BULLET_SPEED,
-            this.owner.playerNum,
-            'drone'
-        );
-        bullet.size = CONFIG.DRONE_BULLET_SIZE;
-        bullets.push(bullet);
-    }
-    
-    takeDamage() {
-        if (!this.alive) return;
-        
-        this.health--;
-        if (this.health <= 0) {
-            this.alive = false;
-            
-            // Create small explosion
-            particles.push(new Explosion(this.x, this.y, 15));
-        }
-    }
-    
-    draw(ctx) {
-        if (!this.alive) return;
-        
-        ctx.save();
-        ctx.translate(this.x, this.y);
-        
-        // Main body
-        const healthPercent = this.health / this.maxHealth;
-        ctx.fillStyle = healthPercent > 0.5 ? '#4169E1' : '#DC143C';
-        ctx.beginPath();
-        ctx.arc(0, 0, this.size, 0, Math.PI * 2);
-        ctx.fill();
-        
-        // Body outline
-        ctx.strokeStyle = '#000';
-        ctx.lineWidth = 2;
-        ctx.stroke();
-        
-        // Rotor (animated)
-        ctx.strokeStyle = '#333';
-        ctx.lineWidth = 1;
-        const rotorSpeed = Date.now() * 0.02;
-        for (let i = 0; i < 4; i++) {
-            const angle = (Math.PI * 2 * i / 4) + rotorSpeed;
-            const x1 = Math.cos(angle) * (this.size - 2);
-            const y1 = Math.sin(angle) * (this.size - 2);
-            const x2 = Math.cos(angle + Math.PI) * (this.size - 2);
-            const y2 = Math.sin(angle + Math.PI) * (this.size - 2);
-            
-            ctx.beginPath();
-            ctx.moveTo(x1, y1);
-            ctx.lineTo(x2, y2);
-            ctx.stroke();
-        }
-        
-        // Eye/sensor
-        ctx.fillStyle = '#FF0000';
-        ctx.beginPath();
-        ctx.arc(0, -2, 3, 0, Math.PI * 2);
-        ctx.fill();
-        
-        // Connection line to owner (faint)
-        if (this.owner && this.owner.alive) {
-            ctx.strokeStyle = 'rgba(65, 105, 225, 0.3)';
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.moveTo(0, 0);
-            ctx.lineTo(this.owner.x - this.x, this.owner.y - this.y);
-            ctx.stroke();
-        }
-        
-        // Health bar (if damaged)
-        if (this.health < this.maxHealth) {
-            ctx.fillStyle = '#ff0000';
-            ctx.fillRect(-this.size, -this.size - 8, 
-                        (this.size * 2) * healthPercent, 3);
-            ctx.strokeStyle = '#000';
-            ctx.lineWidth = 1;
-            ctx.strokeRect(-this.size, -this.size - 8, this.size * 2, 3);
-        }
-        
-        ctx.restore();
-    }
-}
-
 class RingOfFire {
     constructor() {
         this.active = false;
@@ -2719,14 +2394,6 @@ class RingOfFire {
     draw() {
         const elapsed = Date.now() - this.startTime;
         
-        // Apply screen shake if active
-        if (this.active && this.shakeIntensity > 0) {
-            const shakeX = (Math.random() - 0.5) * this.shakeIntensity;
-            const shakeY = (Math.random() - 0.5) * this.shakeIntensity;
-            ctx.save();
-            ctx.translate(shakeX, shakeY);
-        }
-        
         // Draw warning timer
         if (elapsed < this.warningTime) {
             const timeLeft = Math.ceil((this.warningTime - elapsed) / 1000);
@@ -2817,11 +2484,6 @@ class RingOfFire {
             ctx.stroke();
         }
         ctx.restore();
-        
-        // Restore screen shake transformation
-        if (this.active && this.shakeIntensity > 0) {
-            ctx.restore();
-        }
     }
 }
 
@@ -3065,7 +2727,6 @@ function getPowerUpSymbol(powerUpType) {
         case 'explosive': return '💣'; // Bomb
         case 'piercing': return '🏹'; // Arrow for piercing
         case 'mine': return '💎'; // Diamond for mine
-        case 'drone': return '🤖'; // Robot for drone
         default: return '🔸'; // Default diamond when no power-up
     }
 }
@@ -3075,46 +2736,6 @@ function generateRandomRGBColor() {
     const g = Math.floor(Math.random() * 256);
     const b = Math.floor(Math.random() * 256);
     return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
-}
-
-// Camera/Zoom functions
-function updateCamera() {
-    if (!camera.isZooming) return;
-    
-    const elapsed = Date.now() - camera.zoomStartTime;
-    const progress = Math.min(elapsed / CONFIG.WINNER_ZOOM_TRANSITION_TIME, 1.0);
-    
-    // Smooth easing function (ease-out)
-    const easedProgress = 1 - Math.pow(1 - progress, 3);
-    
-    // Interpolate scale and position
-    camera.scale = 1.0 + (camera.targetScale - 1.0) * easedProgress;
-    camera.x = camera.targetX * easedProgress;
-    camera.y = camera.targetY * easedProgress;
-    
-    // Stop zooming when transition complete
-    if (progress >= 1.0) {
-        camera.isZooming = false;
-    }
-}
-
-function startWinnerZoom(winner) {
-    camera.targetScale = CONFIG.WINNER_ZOOM_SCALE;
-    camera.targetX = canvas.width / 2 - winner.x * CONFIG.WINNER_ZOOM_SCALE;
-    camera.targetY = canvas.height / 2 - winner.y * CONFIG.WINNER_ZOOM_SCALE;
-    camera.isZooming = true;
-    camera.zoomStartTime = Date.now();
-}
-
-function resetCamera() {
-    camera.scale = 1.0;
-    camera.targetScale = 1.0;
-    camera.x = 0;
-    camera.y = 0;
-    camera.targetX = 0;
-    camera.targetY = 0;
-    camera.isZooming = false;
-    camera.zoomStartTime = 0;
 }
 
 function selectMapSize(size) {
@@ -3153,18 +2774,12 @@ function init() {
     particles = [];
     powerUps = [];
     collectibles = [];
-    drones = [];
-    targets = [];
     
     // Set grace period (3 seconds at 60fps)
     graceTimer = 180;
     
     // Initialize ring of fire
     ringOfFire = new RingOfFire();
-    
-    // Initialize game systems
-    aiSystem.initialize(CONFIG, gameState);
-    inputHandler.initialize(CONFIG);
     
     generateMaze();
     
@@ -3176,60 +2791,14 @@ function init() {
         left: 'ArrowLeft',
         right: 'ArrowRight',
         shoot: 'm'
-    }, 1, PLAYER1_SECONDARY_COLOR));
+    }, 1));
     
-    if (gameMode === 0) {
-        // Training mode - only player 1, no AI or other players
-        // Add targets for practice
-        
-        // Add stationary targets
-        for (let i = 0; i < CONFIG.TRAINING_STATIONARY_TARGETS; i++) {
-            let validPosition = false;
-            let x, y;
-            while (!validPosition) {
-                x = Math.random() * (canvas.width - 200) + 100;
-                y = Math.random() * (canvas.height - 200) + 100;
-                
-                // Make sure target doesn't spawn too close to player
-                const distanceToPlayer = Math.sqrt(
-                    Math.pow(x - player1Pos.x, 2) + Math.pow(y - player1Pos.y, 2)
-                );
-                
-                if (distanceToPlayer > 150) {
-                    const testTarget = new Target(x, y, 'stationary');
-                    validPosition = !testTarget.checkWallCollision(x, y);
-                }
-            }
-            targets.push(new Target(x, y, 'stationary'));
-        }
-        
-        // Add moving targets
-        for (let i = 0; i < CONFIG.TRAINING_MOVING_TARGETS; i++) {
-            let validPosition = false;
-            let x, y;
-            while (!validPosition) {
-                x = Math.random() * (canvas.width - 300) + 150;
-                y = Math.random() * (canvas.height - 300) + 150;
-                
-                // Make sure target doesn't spawn too close to player
-                const distanceToPlayer = Math.sqrt(
-                    Math.pow(x - player1Pos.x, 2) + Math.pow(y - player1Pos.y, 2)
-                );
-                
-                if (distanceToPlayer > 200) {
-                    const testTarget = new Target(x, y, 'moving');
-                    validPosition = !testTarget.checkWallCollision(x, y);
-                }
-            }
-            targets.push(new Target(x, y, 'moving'));
-        }
-    } else if (gameMode === 1) {
+    if (gameMode === 1) {
         // Add AI tanks in single player mode
-        const aiColors = ['#ff9800', '#9c27b0', '#f44336', '#e91e63', '#2196f3', '#ff5722', '#795548'];
-        
         for (let i = 0; i < CONFIG.AI_TANK_COUNT; i++) {
             const aiPos = generateSafeSpawnPosition();
-            const aiTank = new Tank(aiPos.x, aiPos.y, aiColors[i % aiColors.length], {}, i + 2);
+            const randomColor = generateRandomRGBColor();
+            const aiTank = new Tank(aiPos.x, aiPos.y, randomColor, {}, i + 2);
             aiTank.isAI = true;
             tanks.push(aiTank);
         }
@@ -3241,7 +2810,7 @@ function init() {
             left: 's',
             right: 'f',
             shoot: 'q'
-        }, 2, PLAYER2_SECONDARY_COLOR));
+        }, 2));
     }
     
     for (let i = 0; i < 2; i++) {
@@ -3277,11 +2846,9 @@ function update() {
     }
     
     tanks.forEach(tank => tank.update());
-    targets.forEach(target => target.update());
-    drones.forEach(drone => drone.update());
     
-    // Remove dead drones
-    drones = drones.filter(drone => drone.alive);
+    // Update camera zoom effects
+    updateCamera();
     
     // Update reload bar indicators and ammo displays
     updateReloadBars();
@@ -3291,12 +2858,9 @@ function update() {
         ringOfFire.update();
     }
     
-    // Update camera zoom effect
-    updateCamera();
-    
-    // Check for game over - only one tank left standing (skip in training mode)
+    // Check for game over - only one tank left standing
     const aliveTanks = tanks.filter(t => t.alive);
-    if (aliveTanks.length === 1 && !roundResetting && gameMode !== 0) {
+    if (aliveTanks.length === 1 && !roundResetting) {
         roundResetting = true;
         const winner = aliveTanks[0];
         scores[`player${winner.playerNum}`]++;
@@ -3314,7 +2878,6 @@ function update() {
         // Show winner message
         setTimeout(() => {
             gameWinner = null;
-            resetCamera();
             resetRound();
             roundResetting = false;
         }, 3000);
@@ -3326,22 +2889,6 @@ function update() {
         for (let tank of tanks) {
             if (bullet.checkTankCollision(tank)) {
                 tank.destroy();
-                return false;
-            }
-        }
-        
-        // Check target collisions
-        for (let target of targets) {
-            if (bullet.checkTargetCollision(target)) {
-                target.takeDamage();
-                return false;
-            }
-        }
-        
-        // Check drone collisions
-        for (let drone of drones) {
-            if (bullet.checkDroneCollision(drone)) {
-                drone.takeDamage();
                 return false;
             }
         }
@@ -3380,6 +2927,9 @@ function resetRound() {
     
     // Set grace period (3 seconds at 60fps)
     graceTimer = 180;
+    
+    // Reset camera zoom
+    resetCamera();
     
     // Regenerate the maze and all elements
     generateMaze();
@@ -3424,11 +2974,6 @@ function resetRound() {
 }
 
 function draw() {
-    // Apply camera transformation
-    ctx.save();
-    ctx.translate(camera.x, camera.y);
-    ctx.scale(camera.scale, camera.scale);
-    
     // Simple RPG-style tile background
     const tileSize = 40;
     
@@ -3459,8 +3004,6 @@ function draw() {
     particles.forEach(particle => particle.draw());
     bullets.forEach(bullet => bullet.draw());
     mines.forEach(mine => mine.draw());
-    targets.forEach(target => target.draw(ctx));
-    drones.forEach(drone => drone.draw(ctx));
     tanks.forEach(tank => tank.draw());
     explosions.forEach(explosion => explosion.draw());
     
@@ -3468,9 +3011,6 @@ function draw() {
     if (ringOfFire) {
         ringOfFire.draw();
     }
-    
-    // Restore camera transformation for UI elements
-    ctx.restore();
     
     // Draw grace period countdown
     if (graceTimer > 0) {
@@ -3493,63 +3033,21 @@ function draw() {
         ctx.restore();
     }
     
-    // Draw victory message with dramatic effects
+    // Draw victory message
     if (gameWinner) {
         ctx.save();
-        
-        // Calculate animation progress based on zoom progress
-        const timeSinceWin = Date.now() - camera.zoomStartTime;
-        const fadeProgress = Math.min(timeSinceWin / 1000, 1.0); // Fade in over 1 second
-        const pulseTime = timeSinceWin / 100; // Pulsing speed
-        
-        // Semi-transparent black overlay with fade-in
-        ctx.fillStyle = `rgba(0, 0, 0, ${0.7 * fadeProgress})`;
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         
-        if (fadeProgress > 0.3) { // Start text after 300ms
-            // Text scaling and pulsing effects
-            const textProgress = Math.min((fadeProgress - 0.3) / 0.7, 1.0);
-            const pulseScale = 1 + Math.sin(pulseTime) * 0.1; // Gentle pulsing
-            const textScale = 0.3 + (textProgress * 0.7 * pulseScale); // Scale from small to normal
-            
-            // Glow effect
-            ctx.shadowColor = gameWinner.color;
-            ctx.shadowBlur = 20 + Math.sin(pulseTime) * 10;
-            
-            // Main text
-            const fontSize = 72 * textScale;
-            ctx.font = `bold ${fontSize}px Arial`;
-            ctx.fillStyle = gameWinner.color;
-            ctx.strokeStyle = '#000';
-            ctx.lineWidth = 4 * textScale;
-            ctx.textAlign = 'center';
-            ctx.globalAlpha = textProgress;
-            
-            const message = `Player ${gameWinner.playerNum} Wins!`;
-            const textY = canvas.height / 4; // Move text to upper quarter
-            
-            // Draw text with glow
-            ctx.strokeText(message, canvas.width / 2, textY);
-            ctx.fillText(message, canvas.width / 2, textY);
-            
-            // Additional sparkle effect
-            if (textProgress > 0.8) {
-                ctx.shadowBlur = 0;
-                ctx.fillStyle = '#FFD700';
-                ctx.globalAlpha = (Math.sin(pulseTime * 2) + 1) / 2;
-                
-                // Draw sparkling stars around the text
-                for (let i = 0; i < 8; i++) {
-                    const angle = (pulseTime + i) * 0.5;
-                    const radius = 200 + Math.sin(pulseTime + i) * 50;
-                    const starX = canvas.width / 2 + Math.cos(angle) * radius;
-                    const starY = textY + Math.sin(angle) * radius * 0.3;
-                    
-                    ctx.font = `${20 + Math.sin(pulseTime + i) * 5}px Arial`;
-                    ctx.fillText('✨', starX, starY);
-                }
-            }
-        }
+        ctx.font = 'bold 72px Arial';
+        ctx.fillStyle = gameWinner.color;
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 4;
+        ctx.textAlign = 'center';
+        
+        const message = `Player ${gameWinner.playerNum} wins!`;
+        ctx.strokeText(message, canvas.width / 2, canvas.height / 2);
+        ctx.fillText(message, canvas.width / 2, canvas.height / 2);
         
         ctx.restore();
     }
@@ -3563,27 +3061,28 @@ function gameLoop() {
     requestAnimationFrame(gameLoop);
 }
 
+document.addEventListener('keydown', (e) => {
+    e.preventDefault();
+    const key = e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' || e.key === 'ArrowRight' 
+        ? e.key 
+        : e.key.toLowerCase();
+    keys[key] = true;
+});
+
+document.addEventListener('keyup', (e) => {
+    const key = e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' || e.key === 'ArrowRight' 
+        ? e.key 
+        : e.key.toLowerCase();
+    keys[key] = false;
+});
+
+window.addEventListener('blur', () => {
+    Object.keys(keys).forEach(key => keys[key] = false);
+});
 
 // Settings Screen Functions
-async function showSettings() {
+function showSettings() {
     document.getElementById('startScreen').classList.add('hidden');
-    
-    // Load settings HTML if not already loaded
-    if (!document.getElementById('settingsScreen')) {
-        try {
-            const response = await fetch('settings.html');
-            const settingsHTML = await response.text();
-            
-            // Create a container div and insert the settings HTML
-            const settingsContainer = document.createElement('div');
-            settingsContainer.innerHTML = settingsHTML;
-            document.getElementById('gameContainer').appendChild(settingsContainer.firstElementChild);
-        } catch (error) {
-            console.error('Failed to load settings:', error);
-            return;
-        }
-    }
-    
     document.getElementById('settingsScreen').classList.remove('hidden');
     loadCurrentSettings();
 }
@@ -3614,32 +3113,6 @@ function loadCurrentSettings() {
     
     document.getElementById('ringWarning').value = CONFIG.RING_WARNING_TIME / 1000;
     document.getElementById('ringSafeZone').value = CONFIG.RING_MIN_RADIUS_MULT * 100;
-    
-    // Load training mode settings
-    document.getElementById('trainingStationaryTargets').value = CONFIG.TRAINING_STATIONARY_TARGETS;
-    document.getElementById('trainingMovingTargets').value = CONFIG.TRAINING_MOVING_TARGETS;
-    document.getElementById('trainingTargetHealth').value = CONFIG.TRAINING_TARGET_HEALTH;
-    document.getElementById('trainingTargetSize').value = CONFIG.TRAINING_TARGET_SIZE;
-    document.getElementById('trainingTargetRespawn').value = CONFIG.TRAINING_TARGET_RESPAWN_TIME;
-    document.getElementById('trainingMovingSpeed').value = CONFIG.TRAINING_MOVING_TARGET_SPEED;
-    document.getElementById('trainingMovingRange').value = CONFIG.TRAINING_MOVING_TARGET_RANGE;
-    
-    // Load drone settings
-    document.getElementById('droneSize').value = CONFIG.DRONE_SIZE;
-    document.getElementById('droneSpeed').value = CONFIG.DRONE_SPEED;
-    document.getElementById('droneOrbitDistance').value = CONFIG.DRONE_ORBIT_DISTANCE;
-    document.getElementById('droneHealth').value = CONFIG.DRONE_HEALTH;
-    document.getElementById('droneReloadTime').value = CONFIG.DRONE_RELOAD_TIME;
-    document.getElementById('droneBulletSpeed').value = CONFIG.DRONE_BULLET_SPEED;
-    document.getElementById('droneBulletSize').value = CONFIG.DRONE_BULLET_SIZE;
-    document.getElementById('droneTargetRange').value = CONFIG.DRONE_TARGET_RANGE;
-    document.getElementById('droneOrbitSpeed').value = CONFIG.DRONE_ORBIT_SPEED;
-    
-    // Load player color settings
-    document.getElementById('player1Color').value = PLAYER1_COLOR;
-    document.getElementById('player2Color').value = PLAYER2_COLOR;
-    document.getElementById('player1SecondaryColor').value = PLAYER1_SECONDARY_COLOR;
-    document.getElementById('player2SecondaryColor').value = PLAYER2_SECONDARY_COLOR;
     
     // Load power-up type settings
     Object.keys(CONFIG.POWERUP_TYPES).forEach(type => {
@@ -3677,32 +3150,6 @@ function applySettings() {
     CONFIG.RING_WARNING_TIME = parseInt(document.getElementById('ringWarning').value) * 1000;
     CONFIG.RING_MIN_RADIUS_MULT = parseFloat(document.getElementById('ringSafeZone').value) / 100;
     
-    // Update training mode settings
-    CONFIG.TRAINING_STATIONARY_TARGETS = parseInt(document.getElementById('trainingStationaryTargets').value);
-    CONFIG.TRAINING_MOVING_TARGETS = parseInt(document.getElementById('trainingMovingTargets').value);
-    CONFIG.TRAINING_TARGET_HEALTH = parseInt(document.getElementById('trainingTargetHealth').value);
-    CONFIG.TRAINING_TARGET_SIZE = parseInt(document.getElementById('trainingTargetSize').value);
-    CONFIG.TRAINING_TARGET_RESPAWN_TIME = parseInt(document.getElementById('trainingTargetRespawn').value);
-    CONFIG.TRAINING_MOVING_TARGET_SPEED = parseFloat(document.getElementById('trainingMovingSpeed').value);
-    CONFIG.TRAINING_MOVING_TARGET_RANGE = parseInt(document.getElementById('trainingMovingRange').value);
-    
-    // Update drone settings
-    CONFIG.DRONE_SIZE = parseInt(document.getElementById('droneSize').value);
-    CONFIG.DRONE_SPEED = parseFloat(document.getElementById('droneSpeed').value);
-    CONFIG.DRONE_ORBIT_DISTANCE = parseInt(document.getElementById('droneOrbitDistance').value);
-    CONFIG.DRONE_HEALTH = parseInt(document.getElementById('droneHealth').value);
-    CONFIG.DRONE_RELOAD_TIME = parseInt(document.getElementById('droneReloadTime').value);
-    CONFIG.DRONE_BULLET_SPEED = parseFloat(document.getElementById('droneBulletSpeed').value);
-    CONFIG.DRONE_BULLET_SIZE = parseInt(document.getElementById('droneBulletSize').value);
-    CONFIG.DRONE_TARGET_RANGE = parseInt(document.getElementById('droneTargetRange').value);
-    CONFIG.DRONE_ORBIT_SPEED = parseFloat(document.getElementById('droneOrbitSpeed').value);
-    
-    // Update player colors
-    PLAYER1_COLOR = document.getElementById('player1Color').value;
-    PLAYER2_COLOR = document.getElementById('player2Color').value;
-    PLAYER1_SECONDARY_COLOR = document.getElementById('player1SecondaryColor').value;
-    PLAYER2_SECONDARY_COLOR = document.getElementById('player2SecondaryColor').value;
-    
     // Update power-up type settings
     Object.keys(CONFIG.POWERUP_TYPES).forEach(type => {
         const checkbox = document.getElementById(`powerup_${type}`);
@@ -3710,6 +3157,10 @@ function applySettings() {
             CONFIG.POWERUP_TYPES[type].enabled = checkbox.checked;
         }
     });
+    
+    // Update player color settings
+    PLAYER1_COLOR = document.getElementById('player1Color').value;
+    PLAYER2_COLOR = document.getElementById('player2Color').value;
     
     hideSettings();
 }
@@ -3727,8 +3178,6 @@ function resetToDefaults() {
     // Reset player colors to defaults
     PLAYER1_COLOR = '#4CAF50';
     PLAYER2_COLOR = '#ff9800';
-    PLAYER1_SECONDARY_COLOR = '#2E7D32';
-    PLAYER2_SECONDARY_COLOR = '#E65100';
     
     // Reload the form with default values
     loadCurrentSettings();
