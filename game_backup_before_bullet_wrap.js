@@ -39,12 +39,6 @@ let terrainCanvas = null;
 let terrainCtx = null;
 let terrainCached = false;
 let obstacleTiles = [];
-let bridgeTiles = []; // Separate array for bridges
-
-// Underground tunnel system
-let tunnelEntrances = [];
-let tunnelNetwork = new Map(); // Maps entrance IDs to connected entrances
-let teleportEffects = []; // Visual effects for teleportation
 
 // Background and obstacle images
 let grassImage = new Image();
@@ -84,10 +78,7 @@ let camera = {
     targetX: 0,
     targetY: 0,
     isZooming: false,
-    zoomStartTime: 0,
-    shakeAmount: 0,
-    shakeX: 0,
-    shakeY: 0
+    zoomStartTime: 0
 };
 
 // Use CONFIG values (can be modified by settings)
@@ -163,7 +154,6 @@ class Tank {
         this.isUnderground = false;
         this.currentTunnelId = null;
         this.undergroundAlpha = 1.0; // For fade effect
-        this.tunnelCooldown = 0; // Prevent immediate re-teleportation
     }
     
     generateDefaultSecondaryStatic(primaryColor) {
@@ -202,21 +192,8 @@ class Tank {
             }
         }
         
-        // Check if tank is on sand terrain for speed reduction
-        let speedModifier = 1.0;
-        const gridX = Math.floor(this.x / TILE_SIZE);
-        const gridY = Math.floor(this.y / TILE_SIZE);
-        
-        // Check if current position is on sand
-        const currentTileIndex = gridY * Math.ceil(canvas.width / TILE_SIZE) + gridX;
-        if (currentTileIndex >= 0 && currentTileIndex < terrainTiles.length) {
-            if (terrainTiles[currentTileIndex].type === 'sand') {
-                speedModifier = 0.75; // Reduce speed to 75% on sand
-            }
-        }
-        
-        let newX = this.x + Math.cos(this.angle) * this.speed * speedModifier;
-        let newY = this.y + Math.sin(this.angle) * this.speed * speedModifier;
+        let newX = this.x + Math.cos(this.angle) * this.speed;
+        let newY = this.y + Math.sin(this.angle) * this.speed;
         
         // Screen wrapping logic - allow tank to go partially off-screen
         if (newX < -TANK_SIZE) {
@@ -232,10 +209,10 @@ class Tank {
         }
         
         // Check for tunnel entrance/exit
-        // this.checkTunnelTransition(); // DISABLED FOR NOW
+        this.checkTunnelTransition();
         
-        // Only move if no wall collision
-        if (!this.checkWallCollision(newX, newY)) {
+        // Only move if no wall collision (skip collision if underground)
+        if (this.isUnderground || !this.checkWallCollision(newX, newY)) {
             this.x = newX;
             this.y = newY;
         } else {
@@ -594,7 +571,7 @@ class Tank {
             }
         }
         
-        // Check water obstacles (but not bridges)
+        // Check water obstacles
         for (let obstacle of obstacleTiles) {
             if (obstacle.type === 'water') {
                 const obstacleX = obstacle.x * TILE_SIZE;
@@ -605,7 +582,6 @@ class Tank {
                     return this.angle + (Math.random() > 0.5 ? Math.PI/3 : -Math.PI/3);
                 }
             }
-            // Bridges are walkable, so no avoidance needed
         }
         return 0; // No obstacle detected
     }
@@ -722,6 +698,9 @@ class Tank {
     shoot() {
         if (this.reloadTime > 0) return;
         
+        // Can't shoot while underground
+        if (this.isUnderground) return;
+        
         // Check if we have a power-up and special ammo
         if (this.powerUp && this.specialAmmo <= 0) return;
         
@@ -803,7 +782,7 @@ class Tank {
             }
         }
         
-        // Check water obstacles (but not bridges)
+        // Check water obstacles
         for (let obstacle of obstacleTiles) {
             if (obstacle.type === 'water') {
                 const obstacleX = obstacle.x * TILE_SIZE;
@@ -815,7 +794,6 @@ class Tank {
                     return true;
                 }
             }
-            // Bridges are walkable, so no collision check for them
         }
         
         // Check gate collisions
@@ -883,59 +861,58 @@ class Tank {
     }
     
     checkTunnelTransition() {
-        // Update cooldown
-        if (this.tunnelCooldown > 0) {
-            this.tunnelCooldown--;
-            return;
-        }
-        
         // Check if tank is at a tunnel entrance
         for (let entrance of tunnelEntrances) {
             const dist = Math.sqrt(Math.pow(this.x - entrance.x, 2) + Math.pow(this.y - entrance.y, 2));
             
-            if (dist < entrance.radius + TANK_SIZE/2) { // Include tank size in collision
-                // Instantly teleport to the partner entrance
-                this.teleportThroughTunnel(entrance);
-                break;
+            if (dist < entrance.radius) {
+                if (!this.isUnderground) {
+                    // Enter tunnel
+                    this.enterTunnel(entrance);
+                } else if (this.currentTunnelId !== entrance.id) {
+                    // Exit at different entrance
+                    this.exitTunnel(entrance);
+                }
+            }
+        }
+        
+        // Check if tank moved away from current tunnel entrance while underground
+        if (this.isUnderground && this.currentTunnelId !== null) {
+            const currentEntrance = tunnelEntrances.find(e => e.id === this.currentTunnelId);
+            if (currentEntrance) {
+                const dist = Math.sqrt(Math.pow(this.x - currentEntrance.x, 2) + Math.pow(this.y - currentEntrance.y, 2));
+                if (dist > currentEntrance.radius * 1.5) {
+                    // Teleport to connected entrance
+                    this.teleportToRandomConnectedEntrance();
+                }
             }
         }
     }
     
-    teleportThroughTunnel(entrance) {
-        // Find the partner entrance using partnerId
-        const partnerEntrance = tunnelEntrances.find(e => e.id === entrance.partnerId);
-        if (partnerEntrance) {
-            // Create teleport effect at current position
-            teleportEffects.push({
-                x: this.x,
-                y: this.y,
-                radius: 0,
-                maxRadius: entrance.radius * 2,
-                opacity: 1,
-                color: entrance.color
-            });
-            
-            // Simply place tank at partner portal center
-            // The cooldown will prevent immediate re-entry
-            this.x = partnerEntrance.x;
-            this.y = partnerEntrance.y;
-            
-            // Create teleport effect at exit position
-            teleportEffects.push({
-                x: partnerEntrance.x,
-                y: partnerEntrance.y,
-                radius: partnerEntrance.radius * 2,
-                maxRadius: 0,
-                opacity: 1,
-                color: entrance.color
-            });
-            
-            // Set cooldown to prevent immediate re-teleportation
-            this.tunnelCooldown = 60; // 1 second at 60fps
-            
-            console.log(`Tank teleported from portal ${entrance.id} to portal ${entrance.partnerId}`);
-        } else {
-            console.log(`No partner found for portal ${entrance.id} (looking for ${entrance.partnerId})`);
+    enterTunnel(entrance) {
+        this.isUnderground = true;
+        this.currentTunnelId = entrance.id;
+        this.undergroundAlpha = 0.4; // Make tank semi-transparent
+    }
+    
+    exitTunnel(entrance) {
+        this.isUnderground = false;
+        this.currentTunnelId = null;
+        this.undergroundAlpha = 1.0;
+        this.x = entrance.x;
+        this.y = entrance.y;
+    }
+    
+    teleportToRandomConnectedEntrance() {
+        const connections = tunnelNetwork.get(this.currentTunnelId);
+        if (connections && connections.length > 0) {
+            const randomConnectionId = connections[Math.floor(Math.random() * connections.length)];
+            const targetEntrance = tunnelEntrances.find(e => e.id === randomConnectionId);
+            if (targetEntrance) {
+                this.x = targetEntrance.x;
+                this.y = targetEntrance.y;
+                this.currentTunnelId = targetEntrance.id;
+            }
         }
     }
     
@@ -1463,65 +1440,29 @@ class Bullet {
         
         for (let wall of walls) {
             if (this.checkWallCollision(wall)) {
-                // Check if it's a destructible wall
-                if (wall instanceof DestructibleWall) {
-                    // Damage the wall
-                    const wallDestroyed = wall.takeDamage();
-                    
-                    if (this.type === 'piercing' && this.pierced < this.maxPiercing) {
-                        // Piercing bullets go through and damage walls
-                        this.pierced++;
-                        // Create piercing effect
-                        for (let i = 0; i < 5; i++) {
-                            particles.push(new Particle(this.x, this.y, '#9966FF'));
-                        }
-                        continue; // Continue through the wall
-                    } else if (this.type === 'explosive' || this.type === 'rocket') {
-                        // Explosive bullets explode and damage wall
-                        if (this.type === 'explosive') {
-                            this.createExplosion();
-                        } else {
-                            this.createBigExplosion();
-                        }
-                        return false; // Remove bullet after explosion
-                    } else {
-                        // Normal bullets bounce but damage the wall
-                        if (!wallDestroyed) {
-                            this.bounceOffWall(wall);
-                        } else {
-                            // Wall was destroyed, bullet continues
-                            continue;
-                        }
+                if (this.type === 'piercing' && this.pierced < this.maxPiercing) {
+                    // Piercing bullets go through walls
+                    this.pierced++;
+                    // Create piercing effect
+                    for (let i = 0; i < 5; i++) {
+                        particles.push(new Particle(this.x, this.y, '#9966FF'));
                     }
+                } else if (this.type === 'explosive' || this.type === 'rocket') {
+                    // Explosive bullets explode on wall contact
+                    if (this.type === 'explosive') {
+                        this.createExplosion();
+                    } else {
+                        this.createBigExplosion();
+                    }
+                    return false; // Remove bullet after explosion
                 } else {
-                    // Regular indestructible wall
-                    if (this.type === 'piercing' && this.pierced < this.maxPiercing) {
-                        // Piercing bullets go through walls
-                        this.pierced++;
-                        // Create piercing effect
-                        for (let i = 0; i < 5; i++) {
-                            particles.push(new Particle(this.x, this.y, '#9966FF'));
-                        }
-                    } else if (this.type === 'explosive' || this.type === 'rocket') {
-                        // Explosive bullets explode on wall contact
-                        if (this.type === 'explosive') {
-                            this.createExplosion();
-                        } else {
-                            this.createBigExplosion();
-                        }
-                        return false; // Remove bullet after explosion
-                    } else {
-                        this.bounceOffWall(wall);
-                    }
+                    this.bounceOffWall(wall);
                 }
             }
         }
         
         // Check obstacle tile collisions
         for (let tile of obstacleTiles) {
-            // Bridges and water don't block bullets
-            if (tile.type === 'bridge' || tile.type === 'water') continue;
-            
             const tileLeft = tile.x * TILE_SIZE;
             const tileRight = tileLeft + TILE_SIZE;
             const tileTop = tile.y * TILE_SIZE;
@@ -1668,48 +1609,7 @@ class Bullet {
     }
     
     draw() {
-        // Calculate positions where bullet needs to be drawn (for edge wrapping)
-        const positions = [];
-        positions.push({ x: this.x, y: this.y }); // Main position
-        
-        // Check if bullet needs to be drawn on opposite edges
-        if (this.x < this.size * 2) {
-            positions.push({ x: this.x + canvas.width, y: this.y });
-        } else if (this.x > canvas.width - this.size * 2) {
-            positions.push({ x: this.x - canvas.width, y: this.y });
-        }
-        
-        if (this.y < this.size * 2) {
-            positions.push({ x: this.x, y: this.y + canvas.height });
-        } else if (this.y > canvas.height - this.size * 2) {
-            positions.push({ x: this.x, y: this.y - canvas.height });
-        }
-        
-        // Check corners
-        if (this.x < this.size * 2 && this.y < this.size * 2) {
-            positions.push({ x: this.x + canvas.width, y: this.y + canvas.height });
-        } else if (this.x > canvas.width - this.size * 2 && this.y < this.size * 2) {
-            positions.push({ x: this.x - canvas.width, y: this.y + canvas.height });
-        } else if (this.x < this.size * 2 && this.y > canvas.height - this.size * 2) {
-            positions.push({ x: this.x + canvas.width, y: this.y - canvas.height });
-        } else if (this.x > canvas.width - this.size * 2 && this.y > canvas.height - this.size * 2) {
-            positions.push({ x: this.x - canvas.width, y: this.y - canvas.height });
-        }
-        
-        // Draw bullet at all necessary positions
-        positions.forEach(pos => {
-            this.drawBulletAt(pos.x, pos.y);
-        });
-    }
-    
-    drawBulletAt(drawX, drawY) {
         ctx.save();
-        
-        // Store original position temporarily
-        const originalX = this.x;
-        const originalY = this.y;
-        this.x = drawX;
-        this.y = drawY;
         
         // Different visual effects for each bullet type
         switch(this.type) {
@@ -1732,10 +1632,6 @@ class Bullet {
                 this.drawRegularBullet();
                 break;
         }
-        
-        // Restore original position
-        this.x = originalX;
-        this.y = originalY;
         
         ctx.restore();
     }
@@ -1939,184 +1835,6 @@ class Wall {
                     wallImage,
                     this.x + x, this.y + y, drawWidth, drawHeight
                 );
-            }
-        }
-    }
-}
-
-class DestructibleWall extends Wall {
-    constructor(x, y, width, height) {
-        super(x, y, width, height);
-        this.maxHealth = 3;
-        this.health = 3;
-        this.isDestructible = true;
-        this.damageEffects = [];
-    }
-    
-    takeDamage() {
-        this.health--;
-        
-        // Create damage particles
-        for (let i = 0; i < 8; i++) {
-            const px = this.x + this.width / 2 + (Math.random() - 0.5) * this.width;
-            const py = this.y + this.height / 2 + (Math.random() - 0.5) * this.height;
-            particles.push(new Particle(px, py, this.getDamageColor()));
-        }
-        
-        // Add screen shake for impact
-        if (typeof addScreenShake === 'function') {
-            addScreenShake(2);
-        }
-        
-        // Wall destroyed
-        if (this.health <= 0) {
-            this.destroy();
-            return true; // Wall is destroyed
-        }
-        
-        return false; // Wall still standing
-    }
-    
-    destroy() {
-        // Create destruction particles
-        for (let i = 0; i < 20; i++) {
-            const px = this.x + Math.random() * this.width;
-            const py = this.y + Math.random() * this.height;
-            const color = i % 3 === 0 ? '#8B4513' : (i % 3 === 1 ? '#A0522D' : '#654321');
-            
-            const particle = new Particle(px, py, color);
-            particle.vx = (Math.random() - 0.5) * 4;
-            particle.vy = (Math.random() - 0.5) * 4;
-            particle.size = Math.random() * 4 + 2;
-            particles.push(particle);
-        }
-        
-        // Remove from walls array
-        const index = walls.indexOf(this);
-        if (index > -1) {
-            walls.splice(index, 1);
-        }
-        
-        // Remove from obstacle tiles
-        const tileX = Math.floor(this.x / TILE_SIZE);
-        const tileY = Math.floor(this.y / TILE_SIZE);
-        obstacleTiles = obstacleTiles.filter(tile => 
-            !(tile.x === tileX && tile.y === tileY && tile.type === 'wall')
-        );
-    }
-    
-    getDamageColor() {
-        switch(this.health) {
-            case 2: return '#A0522D'; // Light brown
-            case 1: return '#8B4513'; // Saddle brown
-            default: return '#654321'; // Dark brown
-        }
-    }
-    
-    draw() {
-        // Draw shadow
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
-        ctx.fillRect(this.x + 3, this.y + 3, this.width, this.height);
-        
-        // Draw bright background color based on health
-        if (this.health === this.maxHealth) {
-            // Bright yellow for full health
-            ctx.fillStyle = '#FFEB3B';
-            ctx.fillRect(this.x, this.y, this.width, this.height);
-        } else if (this.health === 2) {
-            // Orange for damaged
-            ctx.fillStyle = '#FF9800';
-            ctx.fillRect(this.x, this.y, this.width, this.height);
-        } else if (this.health === 1) {
-            // Red for critical
-            ctx.fillStyle = '#F44336';
-            ctx.fillRect(this.x, this.y, this.width, this.height);
-        }
-        
-        // Draw wall texture semi-transparent over the color
-        const tileSize = 32;
-        ctx.save();
-        ctx.globalAlpha = 0.3; // Very transparent to show bright color
-        for (let x = 0; x < this.width; x += tileSize) {
-            for (let y = 0; y < this.height; y += tileSize) {
-                const drawWidth = Math.min(tileSize, this.width - x);
-                const drawHeight = Math.min(tileSize, this.height - y);
-                ctx.drawImage(
-                    wallImage,
-                    this.x + x, this.y + y, drawWidth, drawHeight
-                );
-            }
-        }
-        ctx.restore();
-        
-        // Draw thick colored border
-        ctx.lineWidth = 3;
-        if (this.health === this.maxHealth) {
-            ctx.strokeStyle = '#FFC107'; // Amber border
-        } else if (this.health === 2) {
-            ctx.strokeStyle = '#FF5722'; // Deep orange border
-        } else {
-            ctx.strokeStyle = '#B71C1C'; // Dark red border
-        }
-        ctx.strokeRect(this.x, this.y, this.width, this.height);
-        
-        // Add pulsing effect for full health walls
-        if (this.health === this.maxHealth) {
-            const pulse = Math.sin(Date.now() * 0.003) * 0.2 + 0.3;
-            ctx.save();
-            ctx.globalAlpha = pulse;
-            ctx.fillStyle = '#FFFFFF';
-            ctx.fillRect(this.x, this.y, this.width, this.height);
-            ctx.restore();
-        }
-        
-        // Draw cracks based on damage
-        if (this.health < this.maxHealth) {
-            ctx.strokeStyle = '#2C1810';
-            ctx.lineWidth = 2;
-            ctx.globalAlpha = 0.7;
-            
-            if (this.health <= 2) {
-                // Draw first crack
-                ctx.beginPath();
-                ctx.moveTo(this.x + this.width * 0.3, this.y);
-                ctx.lineTo(this.x + this.width * 0.4, this.y + this.height * 0.4);
-                ctx.lineTo(this.x + this.width * 0.2, this.y + this.height);
-                ctx.stroke();
-            }
-            
-            if (this.health <= 1) {
-                // Draw second crack
-                ctx.beginPath();
-                ctx.moveTo(this.x + this.width * 0.7, this.y);
-                ctx.lineTo(this.x + this.width * 0.6, this.y + this.height * 0.6);
-                ctx.lineTo(this.x + this.width * 0.8, this.y + this.height);
-                ctx.stroke();
-                
-                // Draw third crack horizontally
-                ctx.beginPath();
-                ctx.moveTo(this.x, this.y + this.height * 0.5);
-                ctx.lineTo(this.x + this.width * 0.3, this.y + this.height * 0.6);
-                ctx.lineTo(this.x + this.width * 0.7, this.y + this.height * 0.4);
-                ctx.lineTo(this.x + this.width, this.y + this.height * 0.5);
-                ctx.stroke();
-            }
-            
-            ctx.globalAlpha = 1.0;
-        }
-        
-        // Draw health indicator (small bars)
-        if (this.health < this.maxHealth && this.health > 0) {
-            const barWidth = 4;
-            const barHeight = 2;
-            const barSpacing = 2;
-            const totalWidth = this.maxHealth * (barWidth + barSpacing);
-            const startX = this.x + (this.width - totalWidth) / 2;
-            const startY = this.y - 8;
-            
-            for (let i = 0; i < this.maxHealth; i++) {
-                ctx.fillStyle = i < this.health ? '#4CAF50' : '#424242';
-                ctx.fillRect(startX + i * (barWidth + barSpacing), startY, barWidth, barHeight);
             }
         }
     }
@@ -2466,9 +2184,8 @@ class PowerUp {
             this.respawnTimer--;
             if (this.respawnTimer <= 0) {
                 this.collected = false;
-                const newPos = generateSafeItemPosition();
-                this.x = newPos.x;
-                this.y = newPos.y;
+                this.x = Math.random() * (canvas.width - 100) + 50;
+                this.y = Math.random() * (canvas.height - 100) + 50;
                 this.types = this.getEnabledTypes(); // Refresh enabled types
                 this.type = this.types[Math.floor(Math.random() * this.types.length)];
             }
@@ -3445,49 +3162,6 @@ class RingOfFire {
 }
 
 
-function generateSafeItemPosition() {
-    let validPosition = false;
-    let x, y;
-    let attempts = 0;
-    
-    while (!validPosition && attempts < 100) {
-        x = Math.random() * (canvas.width - 100) + 50;
-        y = Math.random() * (canvas.height - 100) + 50;
-        validPosition = true;
-        
-        // Check not on walls
-        for (let wall of walls) {
-            if (x + 15 > wall.x && 
-                x - 15 < wall.x + wall.width &&
-                y + 15 > wall.y && 
-                y - 15 < wall.y + wall.height) {
-                validPosition = false;
-                break;
-            }
-        }
-        
-        // Check not on water or wall tiles
-        if (validPosition) {
-            const tileX = Math.floor(x / TILE_SIZE);
-            const tileY = Math.floor(y / TILE_SIZE);
-            
-            // Check if this tile is an obstacle
-            const blockingTile = obstacleTiles.find(tile => 
-                tile.x === tileX && tile.y === tileY && 
-                (tile.type === 'water' || tile.type === 'wall')
-            );
-            
-            if (blockingTile) {
-                validPosition = false;
-            }
-        }
-        
-        attempts++;
-    }
-    
-    return validPosition ? { x, y } : { x: 100 + Math.random() * (canvas.width - 200), y: 100 + Math.random() * (canvas.height - 200) };
-}
-
 function generateSafeSpawnPosition() {
     let validPosition = false;
     let x, y;
@@ -3509,41 +3183,13 @@ function generateSafeSpawnPosition() {
             }
         }
         
-        // Check not on blocking terrain tiles (water and wall tiles)
-        if (validPosition) {
-            // Calculate the tile coordinates for the spawn position
-            const tileX = Math.floor(x / TILE_SIZE);
-            const tileY = Math.floor(y / TILE_SIZE);
-            
-            // Check a 2x2 area around the spawn position to ensure tank fully fits
-            for (let dx = -1; dx <= 1; dx++) {
-                for (let dy = -1; dy <= 1; dy++) {
-                    const checkX = tileX + dx;
-                    const checkY = tileY + dy;
-                    
-                    // Check if this tile is a blocking tile
-                    const blockingTile = obstacleTiles.find(tile => 
-                        tile.x === checkX && tile.y === checkY
-                    );
-                    
-                    if (blockingTile) {
-                        validPosition = false;
-                        break;
-                    }
-                }
-                if (!validPosition) break;
-            }
-        }
-        
         // Check not too close to other tanks
-        if (validPosition) {
-            for (let tank of tanks) {
-                if (tank.alive) {
-                    const distance = Math.sqrt((x - tank.x) ** 2 + (y - tank.y) ** 2);
-                    if (distance < 200) {  // Increased minimum distance between tanks
-                        validPosition = false;
-                        break;
-                    }
+        for (let tank of tanks) {
+            if (tank.alive) {
+                const distance = Math.sqrt((x - tank.x) ** 2 + (y - tank.y) ** 2);
+                if (distance < 200) {  // Increased minimum distance between tanks
+                    validPosition = false;
+                    break;
                 }
             }
         }
@@ -3818,8 +3464,10 @@ function init() {
     }
     
     for (let i = 0; i < 2; i++) {
-        const powerUpPos = generateSafeItemPosition();
-        powerUps.push(new PowerUp(powerUpPos.x, powerUpPos.y));
+        powerUps.push(new PowerUp(
+            Math.random() * (canvas.width - 100) + 50,
+            Math.random() * (canvas.height - 100) + 50
+        ));
     }
     
     // Add blue collectible points
@@ -4124,13 +3772,22 @@ function resetRound() {
     collectibles = [];
     
     for (let i = 0; i < 2; i++) {
-        const powerUpPos = generateSafeItemPosition();
-        powerUps.push(new PowerUp(powerUpPos.x, powerUpPos.y));
+        powerUps.push(new PowerUp(
+            Math.random() * (canvas.width - 100) + 50,
+            Math.random() * (canvas.height - 100) + 50
+        ));
     }
     
     for (let i = 0; i < 3; i++) {
-        const collectiblePos = generateSafeItemPosition();
-        collectibles.push(new Collectible(collectiblePos.x, collectiblePos.y));
+        let validPosition = false;
+        let x, y;
+        while (!validPosition) {
+            x = Math.random() * (canvas.width - 100) + 50;
+            y = Math.random() * (canvas.height - 100) + 50;
+            const collectible = new Collectible(x, y);
+            validPosition = !collectible.checkWallCollision();
+        }
+        collectibles.push(new Collectible(x, y));
     }
     
     // Respawn all tanks at random positions
@@ -4146,31 +3803,11 @@ function resetRound() {
     });
 }
 
-function addScreenShake(amount) {
-    camera.shakeAmount = Math.max(camera.shakeAmount, amount);
-}
-
-function updateScreenShake() {
-    if (camera.shakeAmount > 0) {
-        camera.shakeX = (Math.random() - 0.5) * camera.shakeAmount * 2;
-        camera.shakeY = (Math.random() - 0.5) * camera.shakeAmount * 2;
-        camera.shakeAmount *= 0.9; // Decay shake
-        if (camera.shakeAmount < 0.1) {
-            camera.shakeAmount = 0;
-            camera.shakeX = 0;
-            camera.shakeY = 0;
-        }
-    }
-}
-
 function draw() {
     try {
-        // Update screen shake
-        updateScreenShake();
-        
         // Apply camera transformation
     ctx.save();
-    ctx.translate(camera.x + camera.shakeX, camera.y + camera.shakeY);
+    ctx.translate(camera.x, camera.y);
     ctx.scale(camera.scale, camera.scale);
     
     // Draw battlefield terrain with varied tiles and features
@@ -4189,9 +3826,6 @@ function draw() {
     
     tanks.forEach(tank => tank.draw());
     explosions.forEach(explosion => explosion.draw());
-    
-    // Draw and update teleport effects
-    drawTeleportEffects();
     
     // Draw training aiming helper (before restoring camera transformation)
     if (gameMode === 0 && CONFIG.TRAINING_AIMING_HELPER && tanks.length > 0) {
@@ -4640,7 +4274,6 @@ function generateTerrainTiles() {
     terrainTiles = [];
     terrainFeatures = [];
     obstacleTiles = [];
-    bridgeTiles = [];
     walls = [];
     terrainCached = false;
     
@@ -4762,168 +4395,74 @@ function generateObstacles() {
     const gridWidth = Math.ceil(canvas.width / TILE_SIZE);
     const gridHeight = Math.ceil(canvas.height / TILE_SIZE);
     
-    // Generate walls with wrapping support and varied sizes - balanced for gameplay
-    const wallCount = Math.floor(Math.random() * 7) + 5; // 5-11 walls (reduced count)
+    // Generate walls
+    const wallCount = Math.floor(Math.random() * 8) + 5; // 5-12 walls
     for (let i = 0; i < wallCount; i++) {
-        // Random wall lengths - balanced to not block too much space
-        const sizeCategory = Math.random();
-        let wallLength;
-        
-        if (sizeCategory < 0.35) {
-            // Short wall (2-3 tiles)
-            wallLength = Math.floor(Math.random() * 2) + 2;
-        } else if (sizeCategory < 0.7) {
-            // Medium wall (4-5 tiles)
-            wallLength = Math.floor(Math.random() * 2) + 4;
-        } else if (sizeCategory < 0.9) {
-            // Long wall (6-7 tiles)
-            wallLength = Math.floor(Math.random() * 2) + 6;
-        } else {
-            // Very long wall (8-10 tiles) - rare
-            wallLength = Math.floor(Math.random() * 3) + 8;
-        }
-        
+        const wallLength = Math.floor(Math.random() * 4) + 2; // 2-5 tiles long
         const horizontal = Math.random() < 0.5;
         
-        // Allow walls to start anywhere, including wrapping positions
-        let startX = Math.floor(Math.random() * gridWidth);
-        let startY = Math.floor(Math.random() * gridHeight);
-        
+        let startX, startY;
         if (horizontal) {
-            // Add wall tiles with wrapping
+            startX = Math.floor(Math.random() * (gridWidth - wallLength));
+            startY = Math.floor(Math.random() * gridHeight);
+            
+            // Add wall tiles
             for (let j = 0; j < wallLength; j++) {
-                const tileX = (startX + j) % gridWidth;
-                
-                // Check if water exists at this position
-                const waterExists = obstacleTiles.find(tile => 
-                    tile.x === tileX && tile.y === startY && tile.type === 'water'
-                );
-                
-                if (!waterExists) {
+                if (startX + j < gridWidth) {
                     obstacleTiles.push({
-                        x: tileX,
+                        x: startX + j,
                         y: startY,
                         type: 'wall'
                     });
                     
                     // Add to walls array for collision detection
-                    // 50% chance for destructible wall
-                    const isDestructible = Math.random() < 0.5;
-                    walls.push(isDestructible ? 
-                        new DestructibleWall(
-                            tileX * TILE_SIZE,
-                            startY * TILE_SIZE,
-                            TILE_SIZE,
-                            TILE_SIZE
-                        ) :
-                        new Wall(
-                            tileX * TILE_SIZE,
-                            startY * TILE_SIZE,
-                            TILE_SIZE,
-                            TILE_SIZE
-                        )
-                    );
+                    walls.push(new Wall(
+                        (startX + j) * TILE_SIZE,
+                        startY * TILE_SIZE,
+                        TILE_SIZE,
+                        TILE_SIZE
+                    ));
                 }
             }
         } else {
-            // Add vertical wall tiles with wrapping
+            startX = Math.floor(Math.random() * gridWidth);
+            startY = Math.floor(Math.random() * (gridHeight - wallLength));
+            
+            // Add wall tiles
             for (let j = 0; j < wallLength; j++) {
-                const tileY = (startY + j) % gridHeight;
-                
-                // Check if water exists at this position
-                const waterExists = obstacleTiles.find(tile => 
-                    tile.x === startX && tile.y === tileY && tile.type === 'water'
-                );
-                
-                if (!waterExists) {
+                if (startY + j < gridHeight) {
                     obstacleTiles.push({
                         x: startX,
-                        y: tileY,
+                        y: startY + j,
                         type: 'wall'
                     });
                     
                     // Add to walls array for collision detection
-                    // 50% chance for destructible wall
-                    const isDestructible = Math.random() < 0.5;
-                    walls.push(isDestructible ?
-                        new DestructibleWall(
-                            startX * TILE_SIZE,
-                            tileY * TILE_SIZE,
-                            TILE_SIZE,
-                            TILE_SIZE
-                        ) :
-                        new Wall(
-                            startX * TILE_SIZE,
-                            tileY * TILE_SIZE,
-                            TILE_SIZE,
-                            TILE_SIZE
-                        )
-                    );
+                    walls.push(new Wall(
+                        startX * TILE_SIZE,
+                        (startY + j) * TILE_SIZE,
+                        TILE_SIZE,
+                        TILE_SIZE
+                    ));
                 }
             }
         }
     }
     
-    // Generate water bodies - balanced for gameplay
-    const waterBodyCount = Math.floor(Math.random() * 2) + 2; // 2-3 water bodies
-    const waterBodies = []; // Track water body locations for bridge generation
-    
+    // Generate water bodies
+    const waterBodyCount = Math.floor(Math.random() * 3) + 2; // 2-4 water bodies
     for (let i = 0; i < waterBodyCount; i++) {
-        // Random water body sizes - balanced to preserve play space
-        const sizeCategory = Math.random();
-        let waterSizeX, waterSizeY;
+        const waterSize = Math.floor(Math.random() * 3) + 2; // 2x2 to 4x4 water bodies
+        const centerX = Math.floor(Math.random() * (gridWidth - waterSize));
+        const centerY = Math.floor(Math.random() * (gridHeight - waterSize));
         
-        if (sizeCategory < 0.4) {
-            // Small pond (3x3 to 4x4)
-            waterSizeX = Math.floor(Math.random() * 2) + 3;
-            waterSizeY = Math.floor(Math.random() * 2) + 3;
-        } else if (sizeCategory < 0.75) {
-            // Medium lake (5x5 to 7x7)
-            waterSizeX = Math.floor(Math.random() * 3) + 5;
-            waterSizeY = Math.floor(Math.random() * 3) + 5;
-        } else {
-            // Large lake (8x6 to 10x8) - still big but not overwhelming
-            waterSizeX = Math.floor(Math.random() * 3) + 8;
-            waterSizeY = Math.floor(Math.random() * 3) + 6;
-            // Sometimes make it wider than tall
-            if (Math.random() < 0.5) {
-                const temp = waterSizeX;
-                waterSizeX = waterSizeY;
-                waterSizeY = temp;
-            }
-        }
-        
-        // Allow water to start anywhere, even outside the map (for wrapping)
-        const centerX = Math.floor(Math.random() * (gridWidth + waterSizeX)) - Math.floor(waterSizeX / 2);
-        const centerY = Math.floor(Math.random() * (gridHeight + waterSizeY)) - Math.floor(waterSizeY / 2);
-        
-        // Store the actual wrapped positions for bridge generation
-        const wrappedCenterX = ((centerX % gridWidth) + gridWidth) % gridWidth;
-        const wrappedCenterY = ((centerY % gridHeight) + gridHeight) % gridHeight;
-        waterBodies.push({ 
-            centerX: wrappedCenterX, 
-            centerY: wrappedCenterY, 
-            sizeX: waterSizeX,
-            sizeY: waterSizeY,
-            originalCenterX: centerX,
-            originalCenterY: centerY
-        });
-        
-        // Create water body with organic shape
-        for (let x = 0; x < waterSizeX; x++) {
-            for (let y = 0; y < waterSizeY; y++) {
-                // Add some randomness to create more organic shapes
-                const distFromCenter = Math.sqrt(
-                    Math.pow((x - waterSizeX/2) / (waterSizeX/2), 2) + 
-                    Math.pow((y - waterSizeY/2) / (waterSizeY/2), 2)
-                );
+        // Create water body in a square/rectangular pattern
+        for (let x = 0; x < waterSize; x++) {
+            for (let y = 0; y < waterSize; y++) {
+                const tileX = centerX + x;
+                const tileY = centerY + y;
                 
-                // Create irregular edges
-                if (distFromCenter < 1.2 + Math.random() * 0.3) {
-                    // Calculate wrapped tile position
-                    const tileX = ((centerX + x) % gridWidth + gridWidth) % gridWidth;
-                    const tileY = ((centerY + y) % gridHeight + gridHeight) % gridHeight;
-                    
+                if (tileX < gridWidth && tileY < gridHeight) {
                     // Check if position is already occupied by walls
                     const existingObstacle = obstacleTiles.find(tile => 
                         tile.x === tileX && tile.y === tileY
@@ -4935,141 +4474,51 @@ function generateObstacles() {
                             y: tileY,
                             type: 'water'
                         });
+                        
+                        // Note: Water acts as collision obstacle but doesn't use Wall rendering
                     }
                 }
             }
         }
     }
     
-    // Generate bridges across water bodies (with wrapping support)
-    bridgeTiles = []; // Reset bridge tiles
-    waterBodies.forEach(waterBody => {
-        // Determine if this water body should have a bridge
-        if (Math.random() < 0.8 && Math.min(waterBody.sizeX, waterBody.sizeY) >= 4) { // 80% chance for larger water bodies
-            // Randomly choose horizontal or vertical bridge
-            const isHorizontal = waterBody.sizeX > waterBody.sizeY;
-            
-            if (isHorizontal) {
-                // Create horizontal bridge through middle of water body
-                const bridgeY = waterBody.originalCenterY + Math.floor(waterBody.sizeY / 2);
-                // Extend bridge 2 tiles beyond water on each side for accessibility
-                const bridgeStartX = waterBody.originalCenterX - 2;
-                const bridgeLength = waterBody.sizeX + 4;
-                
-                for (let x = 0; x < bridgeLength; x++) {
-                    // Calculate wrapped position
-                    const tileX = ((bridgeStartX + x) % gridWidth + gridWidth) % gridWidth;
-                    const wrappedBridgeY = ((bridgeY % gridHeight) + gridHeight) % gridHeight;
-                    
-                    // Check if there's a wall at this position - skip if there is
-                    const wallExists = obstacleTiles.find(tile => 
-                        tile.x === tileX && tile.y === wrappedBridgeY && tile.type === 'wall'
-                    );
-                    
-                    if (!wallExists) {
-                        // Remove water tile where bridge will be
-                        const waterIndex = obstacleTiles.findIndex(tile => 
-                            tile.x === tileX && tile.y === wrappedBridgeY && tile.type === 'water'
-                        );
-                        if (waterIndex !== -1) {
-                            // Remove the water tile
-                            obstacleTiles.splice(waterIndex, 1);
-                        }
-                        
-                        // Add bridge tile to separate array (even over land for continuous bridge)
-                        bridgeTiles.push({
-                            x: tileX,
-                            y: wrappedBridgeY,
-                            type: 'bridge'
-                        });
-                    }
-                }
-            } else {
-                // Create vertical bridge through middle of water body
-                const bridgeX = waterBody.originalCenterX + Math.floor(waterBody.sizeX / 2);
-                // Extend bridge 2 tiles beyond water on each side for accessibility
-                const bridgeStartY = waterBody.originalCenterY - 2;
-                const bridgeLength = waterBody.sizeY + 4;
-                
-                for (let y = 0; y < bridgeLength; y++) {
-                    // Calculate wrapped position
-                    const wrappedBridgeX = ((bridgeX % gridWidth) + gridWidth) % gridWidth;
-                    const tileY = ((bridgeStartY + y) % gridHeight + gridHeight) % gridHeight;
-                    
-                    // Check if there's a wall at this position - skip if there is
-                    const wallExists = obstacleTiles.find(tile => 
-                        tile.x === wrappedBridgeX && tile.y === tileY && tile.type === 'wall'
-                    );
-                    
-                    if (!wallExists) {
-                        // Remove water tile where bridge will be
-                        const waterIndex = obstacleTiles.findIndex(tile => 
-                            tile.x === wrappedBridgeX && tile.y === tileY && tile.type === 'water'
-                        );
-                        if (waterIndex !== -1) {
-                            // Remove the water tile
-                            obstacleTiles.splice(waterIndex, 1);
-                        }
-                        
-                        // Add bridge tile to separate array (even over land for continuous bridge)
-                        bridgeTiles.push({
-                            x: wrappedBridgeX,
-                            y: tileY,
-                            type: 'bridge'
-                        });
-                    }
-                }
-            }
-        }
-    });
-    
     // Generate underground tunnel entrances
-    // generateTunnelSystem(); // DISABLED FOR NOW
+    generateTunnelSystem();
 }
 
 function generateTunnelSystem() {
     tunnelEntrances = [];
     tunnelNetwork.clear();
     
-    // Generate 2-3 tunnel pairs (each tunnel has exactly 2 ends)
-    const tunnelPairCount = Math.floor(Math.random() * 2) + 2; // 2-3 tunnel pairs
-    const minDistance = 250 * CONFIG.GLOBAL_SCALE; // Minimum distance between portal ends
+    // Generate 3-5 tunnel entrances
+    const entranceCount = Math.floor(Math.random() * 3) + 3;
+    const minDistance = 200 * CONFIG.GLOBAL_SCALE; // Minimum distance between entrances
     
-    for (let i = 0; i < tunnelPairCount; i++) {
-        let validPair = false;
+    for (let i = 0; i < entranceCount; i++) {
+        let validPosition = false;
         let attempts = 0;
-        let x1, y1, x2, y2;
+        let x, y;
         
-        while (!validPair && attempts < 50) {
-            // Generate first portal entrance
-            x1 = Math.random() * (canvas.width - 100) + 50;
-            y1 = Math.random() * (canvas.height - 100) + 50;
+        while (!validPosition && attempts < 50) {
+            x = Math.random() * (canvas.width - 100) + 50;
+            y = Math.random() * (canvas.height - 100) + 50;
             
-            // Generate second portal entrance (far from first)
-            x2 = Math.random() * (canvas.width - 100) + 50;
-            y2 = Math.random() * (canvas.height - 100) + 50;
+            validPosition = true;
             
-            const pairDistance = Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
-            
-            validPair = pairDistance >= minDistance;
-            
-            // Check not too close to existing entrances
+            // Check distance from other entrances
             for (let entrance of tunnelEntrances) {
-                const dist1 = Math.sqrt(Math.pow(x1 - entrance.x, 2) + Math.pow(y1 - entrance.y, 2));
-                const dist2 = Math.sqrt(Math.pow(x2 - entrance.x, 2) + Math.pow(y2 - entrance.y, 2));
-                if (dist1 < 100 || dist2 < 100) {
-                    validPair = false;
+                const dist = Math.sqrt(Math.pow(x - entrance.x, 2) + Math.pow(y - entrance.y, 2));
+                if (dist < minDistance) {
+                    validPosition = false;
                     break;
                 }
             }
             
             // Check not on walls or water
             for (let wall of walls) {
-                if ((x1 > wall.x - 30 && x1 < wall.x + wall.width + 30 &&
-                     y1 > wall.y - 30 && y1 < wall.y + wall.height + 30) ||
-                    (x2 > wall.x - 30 && x2 < wall.x + wall.width + 30 &&
-                     y2 > wall.y - 30 && y2 < wall.y + wall.height + 30)) {
-                    validPair = false;
+                if (x > wall.x - 30 && x < wall.x + wall.width + 30 &&
+                    y > wall.y - 30 && y < wall.y + wall.height + 30) {
+                    validPosition = false;
                     break;
                 }
             }
@@ -5077,37 +4526,38 @@ function generateTunnelSystem() {
             attempts++;
         }
         
-        if (validPair) {
-            // Create entrance 1
-            const entrance1 = {
-                id: i * 2,
-                x: x1,
-                y: y1,
+        if (validPosition) {
+            const entrance = {
+                id: i,
+                x: x,
+                y: y,
                 radius: 25 * CONFIG.GLOBAL_SCALE,
-                partnerId: i * 2 + 1,
-                color: `hsl(${i * 120}, 70%, 40%)` // Different color for each tunnel pair
+                active: true
             };
-            
-            // Create entrance 2
-            const entrance2 = {
-                id: i * 2 + 1,
-                x: x2,
-                y: y2,
-                radius: 25 * CONFIG.GLOBAL_SCALE,
-                partnerId: i * 2,
-                color: `hsl(${i * 120}, 70%, 40%)` // Same color as partner
-            };
-            
-            tunnelEntrances.push(entrance1);
-            tunnelEntrances.push(entrance2);
-            
-            // Simple two-way connection
-            tunnelNetwork.set(entrance1.id, entrance2.id);
-            tunnelNetwork.set(entrance2.id, entrance1.id);
+            tunnelEntrances.push(entrance);
         }
     }
     
-    console.log(`Generated ${tunnelEntrances.length} tunnel entrances (${tunnelEntrances.length / 2} pairs)`);
+    // Create tunnel network - connect each entrance to 1-2 others
+    tunnelEntrances.forEach((entrance, index) => {
+        const connections = [];
+        const numConnections = Math.min(2, tunnelEntrances.length - 1);
+        
+        // Connect to nearest entrances
+        const otherEntrances = tunnelEntrances
+            .filter(e => e.id !== entrance.id)
+            .sort((a, b) => {
+                const distA = Math.sqrt(Math.pow(a.x - entrance.x, 2) + Math.pow(a.y - entrance.y, 2));
+                const distB = Math.sqrt(Math.pow(b.x - entrance.x, 2) + Math.pow(b.y - entrance.y, 2));
+                return distA - distB;
+            });
+        
+        for (let i = 0; i < Math.min(numConnections, otherEntrances.length); i++) {
+            connections.push(otherEntrances[i].id);
+        }
+        
+        tunnelNetwork.set(entrance.id, connections);
+    });
 }
 
 function renderTerrainToCache() {
@@ -5283,16 +4733,11 @@ function drawBattlefieldTerrain() {
     
     // Then draw organic shapes for sand terrain patches on top
     if (terrainTiles.length > 0) {
-        const sandTiles = terrainTiles.filter(tile => tile.type === 'sand');
-        if (sandTiles.length > 0) {
-            // Convert terrain tiles to grid coordinates for drawOrganicObstacleShape
-            const sandGridTiles = sandTiles.map(tile => ({
-                x: Math.floor(tile.x / TILE_SIZE),
-                y: Math.floor(tile.y / TILE_SIZE),
-                type: 'sand'
-            }));
-            // Use the same connected shape drawing as walls and water
-            drawOrganicObstacleShape(ctx, sandGridTiles, sandLoaded ? sandImage : null, '#C4B5A0', '#D4A574', TILE_SIZE);
+        const sandPatches = terrainTiles.filter(tile => tile.type === 'sand');
+        if (sandPatches.length > 0) {
+            sandPatches.forEach(tile => {
+                drawOrganicTerrainPatch(ctx, tile, sandLoaded ? sandImage : null, '#C4B5A0', '#D4A574');
+            });
         }
     }
     
@@ -5301,265 +4746,20 @@ function drawBattlefieldTerrain() {
         const wallTiles = obstacleTiles.filter(tile => tile.type === 'wall');
         const waterTiles = obstacleTiles.filter(tile => tile.type === 'water');
         
-        // Draw water first (beneath bridges)
+        if (wallTiles.length > 0) {
+            drawOrganicObstacleShape(ctx, wallTiles, wallLoaded ? wallImage : null, '#8B4513', '#5D4E37', TILE_SIZE);
+        }
+        
         if (waterTiles.length > 0) {
             drawOrganicObstacleShape(ctx, waterTiles, waterLoaded ? waterImage : null, '#4682B4', '#1565C0', TILE_SIZE);
         }
-        
-        // Draw walls using their individual draw methods (to show destructible walls)
-        // First draw regular walls using organic shape
-        const regularWallTiles = [];
-        const destructibleWallPositions = new Set();
-        
-        // Identify which tiles belong to destructible walls
-        walls.forEach(wall => {
-            if (wall instanceof DestructibleWall) {
-                const tileX = Math.floor(wall.x / TILE_SIZE);
-                const tileY = Math.floor(wall.y / TILE_SIZE);
-                destructibleWallPositions.add(`${tileX},${tileY}`);
-            }
-        });
-        
-        // Separate regular wall tiles from destructible ones
-        wallTiles.forEach(tile => {
-            const key = `${tile.x},${tile.y}`;
-            if (!destructibleWallPositions.has(key)) {
-                regularWallTiles.push(tile);
-            }
-        });
-        
-        // Draw regular walls with organic shape
-        if (regularWallTiles.length > 0) {
-            drawOrganicObstacleShape(ctx, regularWallTiles, wallLoaded ? wallImage : null, '#8B4513', '#5D4E37', TILE_SIZE);
-        }
-        
-        // Draw destructible walls using their custom draw method
-        walls.forEach(wall => {
-            if (wall instanceof DestructibleWall) {
-                wall.draw();
-            }
-        });
     }
-    
-    // Draw bridges on top of water (from separate array) with connected appearance
-    if (bridgeTiles.length > 0) {
-        // Group connected bridge tiles into islands
-        const bridgeIslands = groupTilesIntoIslands(bridgeTiles);
-        
-        bridgeIslands.forEach(island => {
-            // Calculate bridge bounds
-            const minX = Math.min(...island.map(t => t.x));
-            const maxX = Math.max(...island.map(t => t.x));
-            const minY = Math.min(...island.map(t => t.y));
-            const maxY = Math.max(...island.map(t => t.y));
-            
-            // Determine if horizontal or vertical bridge
-            const isHorizontal = (maxX - minX) > (maxY - minY);
-            
-            // Draw gradient shadow
-            ctx.save();
-            if (isHorizontal) {
-                const shadowGradient = ctx.createLinearGradient(
-                    minX * TILE_SIZE, 0, 
-                    (maxX + 1) * TILE_SIZE, 0
-                );
-                shadowGradient.addColorStop(0, 'rgba(0, 0, 0, 0.15)');
-                shadowGradient.addColorStop(0.2, 'rgba(0, 0, 0, 0.3)');
-                shadowGradient.addColorStop(0.5, 'rgba(0, 0, 0, 0.45)');
-                shadowGradient.addColorStop(0.8, 'rgba(0, 0, 0, 0.3)');
-                shadowGradient.addColorStop(1, 'rgba(0, 0, 0, 0.15)');
-                
-                ctx.fillStyle = shadowGradient;
-                ctx.fillRect(
-                    minX * TILE_SIZE + 4, 
-                    minY * TILE_SIZE + 6, 
-                    (maxX - minX + 1) * TILE_SIZE, 
-                    (maxY - minY + 1) * TILE_SIZE + 4
-                );
-            } else {
-                const shadowGradient = ctx.createLinearGradient(
-                    0, minY * TILE_SIZE, 
-                    0, (maxY + 1) * TILE_SIZE
-                );
-                shadowGradient.addColorStop(0, 'rgba(0, 0, 0, 0.15)');
-                shadowGradient.addColorStop(0.2, 'rgba(0, 0, 0, 0.3)');
-                shadowGradient.addColorStop(0.5, 'rgba(0, 0, 0, 0.45)');
-                shadowGradient.addColorStop(0.8, 'rgba(0, 0, 0, 0.3)');
-                shadowGradient.addColorStop(1, 'rgba(0, 0, 0, 0.15)');
-                
-                ctx.fillStyle = shadowGradient;
-                ctx.fillRect(
-                    minX * TILE_SIZE + 6, 
-                    minY * TILE_SIZE + 4, 
-                    (maxX - minX + 1) * TILE_SIZE + 4, 
-                    (maxY - minY + 1) * TILE_SIZE
-                );
-            }
-            ctx.restore();
-            
-            // Create organic path for connected bridge shape
-            const bridgePath = createOrganicPath(island, TILE_SIZE);
-            
-            // Fill bridge with wood texture
-            ctx.save();
-            ctx.fillStyle = '#8B6F47';
-            ctx.fill(bridgePath);
-            
-            // Add wood grain details
-            ctx.strokeStyle = '#7A5F37';
-            ctx.lineWidth = 1;
-            ctx.globalAlpha = 0.5;
-            
-            island.forEach(tile => {
-                const x = tile.x * TILE_SIZE;
-                const y = tile.y * TILE_SIZE;
-                
-                // Draw wood grain lines
-                for (let i = 0; i < 4; i++) {
-                    const offset = (i + 1) * (TILE_SIZE / 5);
-                    ctx.beginPath();
-                    if (isHorizontal) {
-                        ctx.moveTo(x, y + offset);
-                        ctx.lineTo(x + TILE_SIZE, y + offset);
-                    } else {
-                        ctx.moveTo(x + offset, y);
-                        ctx.lineTo(x + offset, y + TILE_SIZE);
-                    }
-                    ctx.stroke();
-                }
-            });
-            
-            ctx.restore();
-            
-            // Draw elevated border
-            ctx.strokeStyle = '#654321';
-            ctx.lineWidth = 3;
-            ctx.lineCap = 'round';
-            ctx.lineJoin = 'round';
-            ctx.stroke(bridgePath);
-            
-            // Add highlight on top edge for elevation effect
-            ctx.strokeStyle = '#9B7F57';
-            ctx.lineWidth = 1.5;
-            ctx.globalAlpha = 0.6;
-            ctx.stroke(bridgePath);
-            ctx.globalAlpha = 1;
-        });
-    }
-    
-    // Draw tunnel entrances
-    // drawTunnelEntrances(); // DISABLED FOR NOW
     
     // Obstacles are now drawn with organic shapes above
     
     // Organic shapes are now drawn within drawBattlefieldTerrain()
     
     // Border removed for seamless edge wrapping
-}
-
-function drawTeleportEffects() {
-    // Update and draw teleport effects
-    for (let i = teleportEffects.length - 1; i >= 0; i--) {
-        const effect = teleportEffects[i];
-        
-        // Update effect
-        if (effect.radius < effect.maxRadius) {
-            effect.radius += 3; // Expand
-        } else if (effect.radius > effect.maxRadius) {
-            effect.radius -= 3; // Contract
-        }
-        
-        effect.opacity -= 0.02;
-        
-        // Remove finished effects
-        if (effect.opacity <= 0) {
-            teleportEffects.splice(i, 1);
-            continue;
-        }
-        
-        // Draw effect
-        ctx.save();
-        ctx.globalAlpha = effect.opacity;
-        
-        // Ripple effect
-        ctx.strokeStyle = effect.color || '#00FFFF';
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.arc(effect.x, effect.y, effect.radius, 0, Math.PI * 2);
-        ctx.stroke();
-        
-        // Inner glow
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.arc(effect.x, effect.y, effect.radius * 0.8, 0, Math.PI * 2);
-        ctx.stroke();
-        
-        // Particles
-        const particleCount = 8;
-        for (let j = 0; j < particleCount; j++) {
-            const angle = (Math.PI * 2 / particleCount) * j + (Date.now() * 0.002);
-            const px = effect.x + Math.cos(angle) * effect.radius;
-            const py = effect.y + Math.sin(angle) * effect.radius;
-            
-            ctx.fillStyle = effect.color || '#00FFFF';
-            ctx.beginPath();
-            ctx.arc(px, py, 2, 0, Math.PI * 2);
-            ctx.fill();
-        }
-        
-        ctx.restore();
-    }
-}
-
-function drawTunnelEntrances() {
-    tunnelEntrances.forEach(entrance => {
-        ctx.save();
-        
-        // Draw portal with color coding
-        const gradient = ctx.createRadialGradient(
-            entrance.x, entrance.y, 0,
-            entrance.x, entrance.y, entrance.radius
-        );
-        gradient.addColorStop(0, 'rgba(0, 0, 0, 0.9)');
-        gradient.addColorStop(0.6, entrance.color || 'rgba(20, 20, 20, 0.7)');
-        gradient.addColorStop(1, 'rgba(40, 40, 40, 0.3)');
-        
-        ctx.fillStyle = gradient;
-        ctx.beginPath();
-        ctx.arc(entrance.x, entrance.y, entrance.radius, 0, Math.PI * 2);
-        ctx.fill();
-        
-        // Draw portal ring with color
-        ctx.strokeStyle = entrance.color || '#444';
-        ctx.lineWidth = 4;
-        ctx.beginPath();
-        ctx.arc(entrance.x, entrance.y, entrance.radius, 0, Math.PI * 2);
-        ctx.stroke();
-        
-        // Draw swirling effect
-        ctx.save();
-        ctx.translate(entrance.x, entrance.y);
-        ctx.rotate(Date.now() * 0.001);
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(0, 0, entrance.radius * 0.7, 0, Math.PI);
-        ctx.stroke();
-        ctx.restore();
-        
-        // Draw pulsing glow
-        const pulse = Math.sin(Date.now() * 0.003) * 0.2 + 0.8;
-        ctx.shadowBlur = 15 * pulse;
-        ctx.shadowColor = entrance.color || 'rgba(0, 100, 200, 0.5)';
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.arc(entrance.x, entrance.y, entrance.radius + 3, 0, Math.PI * 2);
-        ctx.stroke();
-        
-        ctx.restore();
-    });
 }
 
 function drawOrganicTerrain(ctx) {

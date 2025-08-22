@@ -129,7 +129,6 @@ function loadCurrentSettings() {
     
     // Game Mechanics
     document.getElementById('gracePeriod').value = settings.GRACE_PERIOD || 180;
-    document.getElementById('aiCount').value = settings.AI_TANK_COUNT || 3;
     document.getElementById('collectibleCount').value = settings.COLLECTIBLE_COUNT || 3;
     
     // Ring of Fire
@@ -154,6 +153,7 @@ function loadCurrentSettings() {
     document.getElementById('trainingTargetRespawn').value = settings.TRAINING_TARGET_RESPAWN_TIME || 180;
     document.getElementById('trainingMovingSpeed').value = settings.TRAINING_MOVING_SPEED || 1;
     document.getElementById('trainingMovingRange').value = settings.TRAINING_MOVING_RANGE || 150;
+    document.getElementById('trainingAimingHelper').checked = settings.TRAINING_AIMING_HELPER !== false;
     
     // Drone Settings
     document.getElementById('droneSize').value = settings.DRONE_SIZE || 12;
@@ -179,6 +179,29 @@ function loadCurrentSettings() {
         const hazardName = checkbox.id.replace('hazard_', '');
         checkbox.checked = hazardTypes.includes(hazardName);
     });
+    
+    // AI Settings
+    document.getElementById('aiDifficulty').value = settings.AI_DIFFICULTY || 'medium';
+    document.getElementById('aiReactionTime').value = settings.AI_REACTION_TIME || 500;
+    document.getElementById('aiAimAccuracy').value = settings.AI_AIM_ACCURACY || 70;
+    document.getElementById('aiAggressiveness').value = settings.AI_AGGRESSIVENESS || 'balanced';
+    document.getElementById('aiPowerupUsage').value = settings.AI_POWERUP_USAGE || 'strategic';
+    document.getElementById('aiCheats').checked = settings.AI_CHEATS || false;
+    
+    // Map Generation
+    document.getElementById('mapType').value = settings.MAP_TYPE || 'open';
+    document.getElementById('wallDensity').value = settings.WALL_DENSITY || 15;
+    document.getElementById('destructibleWalls').checked = settings.DESTRUCTIBLE_WALLS !== false;
+    document.getElementById('wallHealth').value = settings.WALL_HEALTH || 3;
+    document.getElementById('spawnProtection').checked = settings.SPAWN_PROTECTION !== false;
+    document.getElementById('terrainVariation').checked = settings.TERRAIN_VARIATION !== false;
+    document.getElementById('mapSize').value = settings.MAP_SIZE || 'medium';
+    document.getElementById('symmetricalLayout').checked = settings.SYMMETRICAL_LAYOUT !== false;
+    
+    // AI Opponents
+    document.getElementById('aiBotCount').value = settings.AI_BOT_COUNT || 0;
+    document.getElementById('aiBotNames').value = settings.AI_BOT_NAMES || 'Alpha, Beta, Gamma, Delta';
+    document.getElementById('aiTeamBalance').checked = settings.AI_TEAM_BALANCE !== false;
 }
 
 function applySettings() {
@@ -203,7 +226,6 @@ function applySettings() {
     
     // Game Mechanics
     settings.GRACE_PERIOD = parseInt(document.getElementById('gracePeriod').value);
-    settings.AI_TANK_COUNT = parseInt(document.getElementById('aiCount').value);
     settings.COLLECTIBLE_COUNT = parseInt(document.getElementById('collectibleCount').value);
     
     // Ring of Fire
@@ -228,6 +250,7 @@ function applySettings() {
     settings.TRAINING_TARGET_RESPAWN_TIME = parseInt(document.getElementById('trainingTargetRespawn').value);
     settings.TRAINING_MOVING_SPEED = parseFloat(document.getElementById('trainingMovingSpeed').value);
     settings.TRAINING_MOVING_RANGE = parseInt(document.getElementById('trainingMovingRange').value);
+    settings.TRAINING_AIMING_HELPER = document.getElementById('trainingAimingHelper').checked;
     
     // Drone Settings
     settings.DRONE_SIZE = parseInt(document.getElementById('droneSize').value);
