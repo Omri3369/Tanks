@@ -38,23 +38,6 @@ let terrainFeatures = [];
 let terrainCanvas = null;
 let terrainCtx = null;
 let terrainCached = false;
-let obstacleTiles = [];
-
-// Background and obstacle images
-let grassImage = new Image();
-grassImage.src = './assets/images/grass.png';
-let grassLoaded = false;
-grassImage.onload = () => { grassLoaded = true; };
-
-let wallImage = new Image();
-wallImage.src = './assets/images/wall.png';
-let wallLoaded = false;
-wallImage.onload = () => { wallLoaded = true; };
-
-let waterImage = new Image();
-waterImage.src = './assets/images/water.png';
-let waterLoaded = false;
-waterImage.onload = () => { waterLoaded = true; };
 
 // Player colors (can be modified by settings)
 let PLAYER1_COLOR = '#4CAF50';
@@ -82,7 +65,6 @@ let BULLET_SPEED = CONFIG.BULLET_SPEED;
 let BULLET_SIZE = CONFIG.BULLET_SIZE;
 let BULLET_LIFETIME = CONFIG.BULLET_LIFETIME;
 let POWERUP_SIZE = CONFIG.POWERUP_SIZE;
-let TILE_SIZE = 64;
 
 // Initialize AI system
 const aiSystem = new AIBehavior();
@@ -101,7 +83,7 @@ const gameState = {
     }
 };
 
-class Tank {
+// Tank class has been moved to src/game/objects/Tank.js
     constructor(x, y, color, controls, playerNum, secondaryColor = null) {
         this.x = x;
         this.y = y;
@@ -136,12 +118,6 @@ class Tank {
         // Pickup notification
         this.pickupNotification = null;
         this.pickupTimer = 0;
-        
-        // Trail system
-        this.trail = [];
-        this.trailTimer = 0;
-        this.trailInterval = 3; // Add trail point every 3 frames
-        this.maxTrailLength = 30; // Maximum trail points
     }
     
     generateDefaultSecondaryStatic(primaryColor) {
@@ -221,9 +197,6 @@ class Tank {
         
         this.lastX = this.x;
         this.lastY = this.y;
-        
-        // Update trail
-        this.updateTrail();
         
         // Update pickup notification
         if (this.pickupTimer > 0) {
@@ -753,21 +726,6 @@ class Tank {
             }
         }
         
-        // Check obstacle tile collisions
-        for (let tile of obstacleTiles) {
-            const tileLeft = tile.x * TILE_SIZE;
-            const tileRight = tileLeft + TILE_SIZE;
-            const tileTop = tile.y * TILE_SIZE;
-            const tileBottom = tileTop + TILE_SIZE;
-            
-            if (x + TANK_SIZE > tileLeft && 
-                x - TANK_SIZE < tileRight &&
-                y + TANK_SIZE > tileTop && 
-                y - TANK_SIZE < tileBottom) {
-                return true;
-            }
-        }
-        
         return false;
     }
 
@@ -806,87 +764,8 @@ class Tank {
         return true;
     }
     
-    updateTrail() {
-        // Update trail fade
-        this.trail.forEach(point => {
-            point.opacity -= 0.015; // Fade out over time
-        });
-        
-        // Remove faded trail points
-        this.trail = this.trail.filter(point => point.opacity > 0);
-        
-        // Add new trail point if moving
-        if (this.isMoving && this.speed !== 0) {
-            this.trailTimer++;
-            if (this.trailTimer >= this.trailInterval) {
-                this.trailTimer = 0;
-                
-                // Add left and right track positions
-                const trackOffset = TANK_SIZE * 0.4;
-                const leftX = this.x - Math.sin(this.angle) * trackOffset;
-                const leftY = this.y + Math.cos(this.angle) * trackOffset;
-                const rightX = this.x + Math.sin(this.angle) * trackOffset;
-                const rightY = this.y - Math.cos(this.angle) * trackOffset;
-                
-                this.trail.push({
-                    leftX, leftY,
-                    rightX, rightY,
-                    angle: this.angle,
-                    opacity: 0.4
-                });
-                
-                // Limit trail length
-                if (this.trail.length > this.maxTrailLength) {
-                    this.trail.shift();
-                }
-            }
-        }
-    }
-    
-    drawTrails() {
-        ctx.save();
-        
-        // Draw each trail segment
-        this.trail.forEach((point, index) => {
-            ctx.globalAlpha = point.opacity;
-            ctx.strokeStyle = '#2C2C2C';
-            ctx.lineWidth = 6;
-            ctx.lineCap = 'round';
-            
-            // Connect to previous point for smooth trails
-            if (index > 0) {
-                const prevPoint = this.trail[index - 1];
-                
-                // Left track
-                ctx.beginPath();
-                ctx.moveTo(prevPoint.leftX, prevPoint.leftY);
-                ctx.lineTo(point.leftX, point.leftY);
-                ctx.stroke();
-                
-                // Right track
-                ctx.beginPath();
-                ctx.moveTo(prevPoint.rightX, prevPoint.rightY);
-                ctx.lineTo(point.rightX, point.rightY);
-                ctx.stroke();
-                
-                // Add track pattern details
-                if (index % 2 === 0) {
-                    ctx.globalAlpha = point.opacity * 0.5;
-                    ctx.fillStyle = '#1A1A1A';
-                    ctx.fillRect(point.leftX - 2, point.leftY - 2, 4, 4);
-                    ctx.fillRect(point.rightX - 2, point.rightY - 2, 4, 4);
-                }
-            }
-        });
-        
-        ctx.restore();
-    }
-    
     draw() {
         if (!this.alive) return;
-        
-        // Draw tank trails first (beneath the tank)
-        this.drawTrails();
         
         // Blinking effect during grace period
         if (graceTimer > 0) {
@@ -1308,49 +1187,6 @@ class Bullet {
                     return false; // Remove bullet after explosion
                 } else {
                     this.bounceOffWall(wall);
-                }
-            }
-        }
-        
-        // Check obstacle tile collisions
-        for (let tile of obstacleTiles) {
-            const tileLeft = tile.x * TILE_SIZE;
-            const tileRight = tileLeft + TILE_SIZE;
-            const tileTop = tile.y * TILE_SIZE;
-            const tileBottom = tileTop + TILE_SIZE;
-            
-            if (this.x + this.size > tileLeft && 
-                this.x - this.size < tileRight &&
-                this.y + this.size > tileTop && 
-                this.y - this.size < tileBottom) {
-                
-                if (this.type === 'piercing' && this.pierced < this.maxPiercing) {
-                    // Piercing bullets go through obstacles
-                    this.pierced++;
-                    // Create piercing effect
-                    for (let i = 0; i < 5; i++) {
-                        particles.push(new Particle(this.x, this.y, '#9966FF'));
-                    }
-                } else if (this.type === 'explosive' || this.type === 'rocket') {
-                    // Explosive bullets explode on obstacle contact
-                    if (this.type === 'explosive') {
-                        this.createExplosion();
-                    } else {
-                        this.createBigExplosion();
-                    }
-                    return false; // Remove bullet after explosion
-                } else {
-                    // Bounce off obstacle tile
-                    const tileCenterX = tileLeft + TILE_SIZE / 2;
-                    const tileCenterY = tileTop + TILE_SIZE / 2;
-                    const dx = this.x - tileCenterX;
-                    const dy = this.y - tileCenterY;
-                    
-                    if (Math.abs(dx) > Math.abs(dy)) {
-                        this.angle = Math.PI - this.angle;
-                    } else {
-                        this.angle = -this.angle;
-                    }
                 }
             }
         }
@@ -3054,104 +2890,6 @@ function generateSafeSpawnPosition() {
     return validPosition ? { x, y } : { x: 100 + Math.random() * (canvas.width - 200), y: 100 + Math.random() * (canvas.height - 200) };
 }
 
-function generateObstacleTiles() {
-    obstacleTiles = [];
-    
-    // Calculate grid dimensions
-    const cols = Math.floor(canvas.width / TILE_SIZE);
-    const rows = Math.floor(canvas.height / TILE_SIZE);
-    
-    
-    // Generate random obstacle patterns
-    const patterns = [
-        // Pattern 1: Random scattered obstacles
-        () => {
-            for (let i = 0; i < 20; i++) {
-                const x = Math.floor(Math.random() * cols);
-                const y = Math.floor(Math.random() * rows);
-                const type = Math.random() > 0.5 ? 'wall' : 'water';
-                
-                // Check if position is not too close to spawn areas
-                const centerX = x * TILE_SIZE + TILE_SIZE / 2;
-                const centerY = y * TILE_SIZE + TILE_SIZE / 2;
-                
-                // Skip if too close to corners (spawn areas)
-                const minSpawnDist = 150;
-                if ((centerX < minSpawnDist && centerY < minSpawnDist) ||
-                    (centerX > canvas.width - minSpawnDist && centerY < minSpawnDist) ||
-                    (centerX < minSpawnDist && centerY > canvas.height - minSpawnDist) ||
-                    (centerX > canvas.width - minSpawnDist && centerY > canvas.height - minSpawnDist)) {
-                    continue;
-                }
-                
-                obstacleTiles.push({ x, y, type });
-            }
-        },
-        // Pattern 2: Wall formations with water moats
-        () => {
-            // Create wall clusters
-            for (let cluster = 0; cluster < 3; cluster++) {
-                const baseX = Math.floor(Math.random() * (cols - 4)) + 2;
-                const baseY = Math.floor(Math.random() * (rows - 4)) + 2;
-                
-                // Wall cluster
-                for (let dx = 0; dx < 3; dx++) {
-                    for (let dy = 0; dy < 3; dy++) {
-                        if (Math.random() > 0.3) {
-                            obstacleTiles.push({ x: baseX + dx, y: baseY + dy, type: 'wall' });
-                        }
-                    }
-                }
-                
-                // Surrounding water
-                for (let dx = -1; dx < 4; dx++) {
-                    obstacleTiles.push({ x: baseX + dx, y: baseY - 1, type: 'water' });
-                    obstacleTiles.push({ x: baseX + dx, y: baseY + 3, type: 'water' });
-                }
-                for (let dy = 0; dy < 3; dy++) {
-                    obstacleTiles.push({ x: baseX - 1, y: baseY + dy, type: 'water' });
-                    obstacleTiles.push({ x: baseX + 3, y: baseY + dy, type: 'water' });
-                }
-            }
-        },
-        // Pattern 3: Rivers and bridges
-        () => {
-            // Create horizontal river
-            const riverY = Math.floor(rows / 2);
-            for (let x = 0; x < cols; x++) {
-                // Leave gaps for bridges
-                if (x % 5 !== 2 && x % 5 !== 3) {
-                    obstacleTiles.push({ x, y: riverY, type: 'water' });
-                    obstacleTiles.push({ x, y: riverY + 1, type: 'water' });
-                }
-            }
-            
-            // Create vertical river
-            const riverX = Math.floor(cols / 2);
-            for (let y = 0; y < rows; y++) {
-                // Leave gaps for bridges
-                if (y % 5 !== 2 && y % 5 !== 3) {
-                    obstacleTiles.push({ x: riverX, y, type: 'water' });
-                    obstacleTiles.push({ x: riverX + 1, y, type: 'water' });
-                }
-            }
-            
-            // Add some wall formations
-            for (let i = 0; i < 10; i++) {
-                const x = Math.floor(Math.random() * cols);
-                const y = Math.floor(Math.random() * rows);
-                if (Math.abs(x - riverX) > 2 && Math.abs(y - riverY) > 2) {
-                    obstacleTiles.push({ x, y, type: 'wall' });
-                }
-            }
-        }
-    ];
-    
-    // Select random pattern
-    const selectedPattern = patterns[Math.floor(Math.random() * patterns.length)];
-    selectedPattern();
-}
-
 function generateMaze() {
     walls = [];
     gates = [];
@@ -3437,9 +3175,35 @@ function spawnRandomCollectible() {
     return null; // Failed to find valid position
 }
 
-// selectMapSize function moved to menu.js
+function selectMapSize(size) {
+    mapSize = size;
+    
+    // Update button states
+    document.querySelectorAll('.map-size-btn').forEach(btn => btn.classList.remove('active'));
+    document.getElementById(`${size}-btn`).classList.add('active');
+}
 
-// startGame function moved to menu.js
+function startGame(mode) {
+    gameMode = mode;
+    gameRunning = true;
+    
+    // Update AI count from main menu input
+    const mainMenuAiCount = document.getElementById('mainMenuAiCount');
+    if (mainMenuAiCount) {
+        CONFIG.AI_TANK_COUNT = parseInt(mainMenuAiCount.value) || 3;
+        console.log('AI Count set to:', CONFIG.AI_TANK_COUNT);
+    }
+    
+    // Set canvas size based on selected map size
+    setMapSize(mapSize);
+    
+    startScreen.classList.add('hidden');
+    canvas.classList.remove('hidden');
+    scoreBoard.classList.remove('hidden');
+    controls.classList.remove('hidden');
+    
+    init();
+}
 
 function init() {
     tanks = [];
@@ -3462,9 +3226,6 @@ function init() {
     
     // Generate terrain for battlefield
     generateTerrainTiles();
-    
-    // Generate obstacle tiles (walls and water)
-    generateObstacleTiles();
     
     generateMaze();
     
@@ -3697,9 +3458,6 @@ function resetRound() {
     // Regenerate terrain for new round
     generateTerrainTiles();
     
-    // Generate obstacle tiles (walls and water)
-    generateObstacleTiles();
-    
     // Regenerate the maze and all elements
     generateMaze();
     
@@ -3760,8 +3518,6 @@ function draw() {
     mines.forEach(mine => mine.draw());
     targets.forEach(target => target.draw(ctx));
     drones.forEach(drone => drone.draw(ctx));
-    
-    
     tanks.forEach(tank => tank.draw());
     explosions.forEach(explosion => explosion.draw());
     
@@ -3865,84 +3621,16 @@ function gameLoop() {
 }
 
 
-// openSettings function moved to menu.js
-
-// Function to update settings from popup window
-function updateSettingsFromPopup(settings) {
-    // Update all the game variables with the new settings
-    TANK_SPEED = settings.TANK_SPEED !== undefined ? settings.TANK_SPEED : TANK_SPEED;
-    TANK_TURN_SPEED = settings.TANK_TURN_SPEED !== undefined ? settings.TANK_TURN_SPEED : TANK_TURN_SPEED;
-    TANK_SIZE = settings.TANK_SIZE !== undefined ? settings.TANK_SIZE : TANK_SIZE;
-    
-    // Also update CONFIG object
-    CONFIG.TANK_SPEED = TANK_SPEED;
-    CONFIG.TANK_TURN_SPEED = TANK_TURN_SPEED;
-    CONFIG.TANK_SIZE = TANK_SIZE;
-    CONFIG.TANK_MAX_SPECIAL_AMMO = settings.TANK_MAX_SPECIAL_AMMO !== undefined ? settings.TANK_MAX_SPECIAL_AMMO : CONFIG.TANK_MAX_SPECIAL_AMMO;
-    CONFIG.TANK_RELOAD_TIME = settings.TANK_RELOAD_TIME !== undefined ? settings.TANK_RELOAD_TIME : CONFIG.TANK_RELOAD_TIME;
-    
-    BULLET_SPEED = settings.BULLET_SPEED !== undefined ? settings.BULLET_SPEED : BULLET_SPEED;
-    BULLET_SIZE = settings.BULLET_SIZE !== undefined ? settings.BULLET_SIZE : BULLET_SIZE;
-    BULLET_LIFETIME = settings.BULLET_LIFETIME !== undefined ? settings.BULLET_LIFETIME : BULLET_LIFETIME;
-    
-    // Also update CONFIG object
-    CONFIG.BULLET_SPEED = BULLET_SPEED;
-    CONFIG.BULLET_SIZE = BULLET_SIZE;
-    CONFIG.BULLET_LIFETIME = BULLET_LIFETIME;
-    
-    CONFIG.POWERUP_COUNT = settings.POWERUP_COUNT !== undefined ? settings.POWERUP_COUNT : CONFIG.POWERUP_COUNT;
-    POWERUP_SIZE = settings.POWERUP_SIZE !== undefined ? settings.POWERUP_SIZE : POWERUP_SIZE;
-    CONFIG.POWERUP_SIZE = POWERUP_SIZE;
-    CONFIG.POWERUP_RESPAWN_TIME = settings.POWERUP_RESPAWN_TIME !== undefined ? settings.POWERUP_RESPAWN_TIME : CONFIG.POWERUP_RESPAWN_TIME;
-    
-    CONFIG.GRACE_PERIOD = settings.GRACE_PERIOD !== undefined ? settings.GRACE_PERIOD : CONFIG.GRACE_PERIOD;
-    CONFIG.AI_TANK_COUNT = settings.AI_TANK_COUNT !== undefined ? settings.AI_TANK_COUNT : CONFIG.AI_TANK_COUNT;
-    CONFIG.COLLECTIBLE_COUNT = settings.COLLECTIBLE_COUNT !== undefined ? settings.COLLECTIBLE_COUNT : CONFIG.COLLECTIBLE_COUNT;
-    
-    CONFIG.RING_OF_FIRE_ENABLED = settings.RING_OF_FIRE_ENABLED !== undefined ? settings.RING_OF_FIRE_ENABLED : CONFIG.RING_OF_FIRE_ENABLED;
-    CONFIG.RING_WARNING_TIME = (settings.RING_OF_FIRE_WARNING_TIME !== undefined ? settings.RING_OF_FIRE_WARNING_TIME : 30) * 1000;
-    CONFIG.RING_MIN_RADIUS_MULT = (settings.RING_OF_FIRE_SAFE_ZONE_SIZE !== undefined ? settings.RING_OF_FIRE_SAFE_ZONE_SIZE : 20) / 100;
-    
-    CONFIG.FRIENDLY_FIRE = settings.FRIENDLY_FIRE !== undefined ? settings.FRIENDLY_FIRE : CONFIG.FRIENDLY_FIRE;
-    
-    PLAYER1_COLOR = settings.PLAYER1_COLOR !== undefined ? settings.PLAYER1_COLOR : PLAYER1_COLOR;
-    PLAYER1_SECONDARY_COLOR = settings.PLAYER1_SECONDARY_COLOR !== undefined ? settings.PLAYER1_SECONDARY_COLOR : PLAYER1_SECONDARY_COLOR;
-    PLAYER2_COLOR = settings.PLAYER2_COLOR !== undefined ? settings.PLAYER2_COLOR : PLAYER2_COLOR;
-    PLAYER2_SECONDARY_COLOR = settings.PLAYER2_SECONDARY_COLOR !== undefined ? settings.PLAYER2_SECONDARY_COLOR : PLAYER2_SECONDARY_COLOR;
-    
-    CONFIG.TRAINING_STATIONARY_TARGETS = settings.TRAINING_STATIONARY_TARGETS !== undefined ? settings.TRAINING_STATIONARY_TARGETS : CONFIG.TRAINING_STATIONARY_TARGETS;
-    CONFIG.TRAINING_MOVING_TARGETS = settings.TRAINING_MOVING_TARGETS !== undefined ? settings.TRAINING_MOVING_TARGETS : CONFIG.TRAINING_MOVING_TARGETS;
-    CONFIG.TRAINING_TARGET_HEALTH = settings.TRAINING_TARGET_HEALTH !== undefined ? settings.TRAINING_TARGET_HEALTH : CONFIG.TRAINING_TARGET_HEALTH;
-    CONFIG.TRAINING_TARGET_SIZE = settings.TRAINING_TARGET_SIZE !== undefined ? settings.TRAINING_TARGET_SIZE : CONFIG.TRAINING_TARGET_SIZE;
-    CONFIG.TRAINING_TARGET_RESPAWN_TIME = settings.TRAINING_TARGET_RESPAWN_TIME !== undefined ? settings.TRAINING_TARGET_RESPAWN_TIME : CONFIG.TRAINING_TARGET_RESPAWN_TIME;
-    CONFIG.TRAINING_MOVING_TARGET_SPEED = settings.TRAINING_MOVING_SPEED !== undefined ? settings.TRAINING_MOVING_SPEED : CONFIG.TRAINING_MOVING_TARGET_SPEED;
-    CONFIG.TRAINING_MOVING_TARGET_RANGE = settings.TRAINING_MOVING_RANGE !== undefined ? settings.TRAINING_MOVING_RANGE : CONFIG.TRAINING_MOVING_TARGET_RANGE;
-    
-    CONFIG.DRONE_SIZE = settings.DRONE_SIZE !== undefined ? settings.DRONE_SIZE : CONFIG.DRONE_SIZE;
-    CONFIG.DRONE_SPEED = settings.DRONE_SPEED !== undefined ? settings.DRONE_SPEED : CONFIG.DRONE_SPEED;
-    CONFIG.DRONE_ORBIT_DISTANCE = settings.DRONE_ORBIT_DISTANCE !== undefined ? settings.DRONE_ORBIT_DISTANCE : CONFIG.DRONE_ORBIT_DISTANCE;
-    CONFIG.DRONE_HEALTH = settings.DRONE_HEALTH !== undefined ? settings.DRONE_HEALTH : CONFIG.DRONE_HEALTH;
-    CONFIG.DRONE_RELOAD_TIME = settings.DRONE_RELOAD_TIME !== undefined ? settings.DRONE_RELOAD_TIME : CONFIG.DRONE_RELOAD_TIME;
-    CONFIG.DRONE_BULLET_SPEED = settings.DRONE_BULLET_SPEED !== undefined ? settings.DRONE_BULLET_SPEED : CONFIG.DRONE_BULLET_SPEED;
-    CONFIG.DRONE_BULLET_SIZE = settings.DRONE_BULLET_SIZE !== undefined ? settings.DRONE_BULLET_SIZE : CONFIG.DRONE_BULLET_SIZE;
-    CONFIG.DRONE_TARGET_RANGE = settings.DRONE_TARGET_RANGE !== undefined ? settings.DRONE_TARGET_RANGE : CONFIG.DRONE_TARGET_RANGE;
-    CONFIG.DRONE_ORBIT_SPEED = settings.DRONE_ORBIT_SPEED !== undefined ? settings.DRONE_ORBIT_SPEED : CONFIG.DRONE_ORBIT_SPEED;
-    
-    CONFIG.ALLOWED_POWERUP_TYPES = settings.ALLOWED_POWERUP_TYPES !== undefined ? settings.ALLOWED_POWERUP_TYPES : CONFIG.ALLOWED_POWERUP_TYPES;
-    CONFIG.ALLOWED_HAZARD_TYPES = settings.ALLOWED_HAZARD_TYPES !== undefined ? settings.ALLOWED_HAZARD_TYPES : CONFIG.ALLOWED_HAZARD_TYPES;
-    
-    // Re-initialize input handler and AI system with updated CONFIG
-    inputHandler.initialize(CONFIG);
-    aiSystem.initialize(CONFIG, gameState);
+// Settings Screen Functions
+function showSettings() {
+    document.getElementById('startScreen').classList.add('hidden');
+    document.getElementById('settingsScreen').classList.remove('hidden');
+    loadCurrentSettings();
 }
 
-// Load settings from localStorage on startup
-function loadSettingsFromStorage() {
-    const savedSettings = localStorage.getItem('tankGameSettings');
-    if (savedSettings) {
-        const settings = JSON.parse(savedSettings);
-        updateSettingsFromPopup(settings);
-    }
+function hideSettings() {
+    document.getElementById('settingsScreen').classList.add('hidden');
+    document.getElementById('startScreen').classList.remove('hidden');
 }
 
 function loadCurrentSettings() {
@@ -4086,18 +3774,47 @@ function resetToDefaults() {
     loadCurrentSettings();
 }
 
-// Ammo Guide Functions (toggleAmmoGuide, hideAmmoGuide) moved to menu.js
+// Ammo Guide Functions
+function toggleAmmoGuide() {
+    document.getElementById('startScreen').classList.add('hidden');
+    document.getElementById('ammoGuide').classList.remove('hidden');
+}
 
-// Return to main menu function
+function hideAmmoGuide() {
+    document.getElementById('ammoGuide').classList.add('hidden');
+    document.getElementById('startScreen').classList.remove('hidden');
+}
+
+// Back to Main Menu Function
 function returnToMainMenu() {
-    // Navigate back to menu page
-    window.location.href = 'menu.html';
+    // Stop the game
+    gameRunning = false;
+    
+    // Show start screen
+    document.getElementById('startScreen').classList.remove('hidden');
+    
+    // Hide game elements
+    document.getElementById('gameCanvas').classList.add('hidden');
+    document.getElementById('scoreBoard').classList.add('hidden');
+    document.getElementById('controls').classList.add('hidden');
+    
+    // Reset game state
+    tanks = [];
+    bullets = [];
+    particles = [];
+    explosions = [];
+    mines = [];
+    scores = {};
+    points = {};
+    gameWinner = null;
 }
 
 // Terrain system functions
 function generateTerrainTiles() {
-    // Disabled - using solid color background instead
-    return;
+    terrainTiles = [];
+    terrainFeatures = [];
+    terrainCached = false; // Mark cache as invalid
+    const tileSize = 40 * CONFIG.GLOBAL_SCALE;
     
     // Define tile types with different probabilities
     const tileTypes = [
@@ -4330,60 +4047,23 @@ function renderTerrainToCache() {
 }
 
 function drawBattlefieldTerrain() {
-    // Draw tiled grass background if image is loaded
-    if (grassLoaded) {
-        const tileSize = TILE_SIZE;
-        const cols = Math.ceil(canvas.width / tileSize);
-        const rows = Math.ceil(canvas.height / tileSize);
-        
-        for (let row = 0; row < rows; row++) {
-            for (let col = 0; col < cols; col++) {
-                ctx.drawImage(
-                    grassImage,
-                    col * tileSize,
-                    row * tileSize,
-                    tileSize,
-                    tileSize
-                );
-            }
+    // Check if we need to create or update the cached terrain
+    if (!terrainCached || !terrainCanvas) {
+        // Create off-screen canvas for caching if needed
+        if (!terrainCanvas) {
+            terrainCanvas = document.createElement('canvas');
+            terrainCtx = terrainCanvas.getContext('2d');
         }
-    } else {
-        // Fallback to solid color if image not loaded
-        ctx.fillStyle = '#95A5A6';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // Set canvas size
+        terrainCanvas.width = canvas.width;
+        terrainCanvas.height = canvas.height;
+        
+        // Render terrain to cache
+        renderTerrainToCache();
+        terrainCached = true;
     }
     
-    // Draw obstacle tiles (walls and water)
-    obstacleTiles.forEach(tile => {
-        let image = null;
-        if (tile.type === 'wall' && wallLoaded) {
-            image = wallImage;
-        } else if (tile.type === 'water' && waterLoaded) {
-            image = waterImage;
-        }
-        
-        if (image) {
-            ctx.drawImage(
-                image,
-                tile.x * TILE_SIZE,
-                tile.y * TILE_SIZE,
-                TILE_SIZE,
-                TILE_SIZE
-            );
-        } else {
-            // Fallback colors if images not loaded
-            ctx.fillStyle = tile.type === 'wall' ? '#8B4513' : '#4682B4';
-            ctx.fillRect(
-                tile.x * TILE_SIZE,
-                tile.y * TILE_SIZE,
-                TILE_SIZE,
-                TILE_SIZE
-            );
-        }
-    });
-    
-    // Draw border around the canvas
-    ctx.strokeStyle = '#E74C3C'; // Red border
-    ctx.lineWidth = 8;
-    ctx.strokeRect(4, 4, canvas.width - 8, canvas.height - 8);
+    // Draw cached terrain to main canvas
+    ctx.drawImage(terrainCanvas, 0, 0);
 }

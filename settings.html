@@ -1,553 +1,1088 @@
-<div id="settingsScreen" class="hidden">
-    <h2 style="text-align: center; color: #4CAF50; margin-bottom: 20px;">⚙️ Game Settings</h2>
-    
-    <div class="settings-section">
-        <h3>🚗 Tank Properties</h3>
-        <div class="setting-item">
-            <label>Tank Speed:</label>
-            <input type="number" id="tankSpeed" step="0.1" min="0.5" max="5">
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tank Game Settings</title>
+    <link rel="stylesheet" href="settings.css">
+</head>
+<body>
+    <div id="settingsScreen">
+        <h2 style="text-align: center; color: #4CAF50; margin-bottom: 20px;">⚙️ Game Settings</h2>
+        
+        <div class="tabs">
+            <button class="tab-button active" onclick="openTab(event, 'tank-tab')">🚗 Tank</button>
+            <button class="tab-button" onclick="openTab(event, 'weapons-tab')">🔫 Weapons</button>
+            <button class="tab-button" onclick="openTab(event, 'powerups-tab')">⚡ Power-ups</button>
+            <button class="tab-button" onclick="openTab(event, 'game-tab')">🎮 Game</button>
+            <button class="tab-button" onclick="openTab(event, 'visuals-tab')">🎨 Visuals</button>
+            <button class="tab-button" onclick="openTab(event, 'training-tab')">🎯 Training</button>
+            <button class="tab-button" onclick="openTab(event, 'hazards-tab')">⚠️ Hazards</button>
+            <button class="tab-button" onclick="openTab(event, 'allowed-powerups-tab')">✅ Allowed Items</button>
         </div>
-        <div class="setting-item">
-            <label>Tank Turn Speed:</label>
-            <input type="number" id="tankTurnSpeed" step="0.005" min="0.01" max="0.1">
+        
+        <div id="tank-tab" class="tab-content active">
+            <div class="settings-section">
+                <h3>🚗 Tank Properties</h3>
+            <div class="setting-item">
+                <label>Tank Speed:
+                    <span class="info-icon">i
+                        <span class="tooltip">Controls how fast your tank moves forward and backward (0.5 - 5.0)</span>
+                    </span>
+                </label>
+                <input type="number" id="tankSpeed" step="0.1" min="0.5" max="5">
+            </div>
+            <div class="setting-item">
+                <label>Tank Turn Speed:
+                    <span class="info-icon">i
+                        <span class="tooltip">How quickly your tank rotates left and right (0.01 - 0.1)</span>
+                    </span>
+                </label>
+                <input type="number" id="tankTurnSpeed" step="0.005" min="0.01" max="0.1">
+            </div>
+            <div class="setting-item">
+                <label>Tank Size:
+                    <span class="info-icon">i
+                        <span class="tooltip">The physical size of tanks in pixels (20 - 50)</span>
+                    </span>
+                </label>
+                <input type="number" id="tankSize" step="1" min="20" max="50">
+            </div>
+            <div class="setting-item">
+                <label>Special Ammo Count:
+                    <span class="info-icon">i
+                        <span class="tooltip">Maximum number of special weapon shots you can store (1 - 20)</span>
+                    </span>
+                </label>
+                <input type="number" id="specialAmmo" step="1" min="1" max="20">
+            </div>
+            <div class="setting-item">
+                <label>Reload Time (frames):
+                    <span class="info-icon">i
+                        <span class="tooltip">Delay between shots in frames (60 frames = 1 second)</span>
+                    </span>
+                </label>
+                <input type="number" id="reloadTime" step="5" min="10" max="180">
+            </div>
         </div>
-        <div class="setting-item">
-            <label>Tank Size:</label>
-            <input type="number" id="tankSize" step="1" min="20" max="50">
         </div>
-        <div class="setting-item">
-            <label>Special Ammo Count:</label>
-            <input type="number" id="specialAmmo" step="1" min="1" max="20">
+        
+        <div id="weapons-tab" class="tab-content">
+        <div class="settings-section">
+            <h3>🔫 Bullet Properties</h3>
+            <div class="setting-item">
+                <label>Bullet Speed:
+                    <span class="info-icon">i
+                        <span class="tooltip">How fast bullets travel across the battlefield (1.0 - 10.0)</span>
+                    </span>
+                </label>
+                <input type="number" id="bulletSpeed" step="0.5" min="1" max="10">
+            </div>
+            <div class="setting-item">
+                <label>Bullet Size:
+                    <span class="info-icon">i
+                        <span class="tooltip">The radius of bullets in pixels (2 - 10)</span>
+                    </span>
+                </label>
+                <input type="number" id="bulletSize" step="1" min="2" max="10">
+            </div>
+            <div class="setting-item">
+                <label>Bullet Lifetime (frames):
+                    <span class="info-icon">i
+                        <span class="tooltip">How long bullets exist before disappearing (60-600 frames)</span>
+                    </span>
+                </label>
+                <input type="number" id="bulletLifetime" step="30" min="60" max="600">
+            </div>
         </div>
-        <div class="setting-item">
-            <label>Reload Time (frames):</label>
-            <input type="number" id="reloadTime" step="5" min="10" max="180">
+        
+        <div class="settings-section">
+            <h3>🤖 Drone Settings</h3>
+            <div class="setting-item">
+                <label>Drone Size:
+                    <span class="info-icon">i
+                        <span class="tooltip">Size of combat drones in pixels (8-20)</span>
+                    </span>
+                </label>
+                <input type="number" id="droneSize" step="1" min="8" max="20">
+            </div>
+            <div class="setting-item">
+                <label>Drone Speed:
+                    <span class="info-icon">i
+                        <span class="tooltip">Movement speed of drones (0.5-3.0)</span>
+                    </span>
+                </label>
+                <input type="number" id="droneSpeed" step="0.1" min="0.5" max="3">
+            </div>
+            <div class="setting-item">
+                <label>Drone Orbit Distance:
+                    <span class="info-icon">i
+                        <span class="tooltip">Distance drones orbit around tank (30-120)</span>
+                    </span>
+                </label>
+                <input type="number" id="droneOrbitDistance" step="5" min="30" max="120">
+            </div>
+            <div class="setting-item">
+                <label>Drone Health:
+                    <span class="info-icon">i
+                        <span class="tooltip">Hits required to destroy a drone (1-10)</span>
+                    </span>
+                </label>
+                <input type="number" id="droneHealth" step="1" min="1" max="10">
+            </div>
+            <div class="setting-item">
+                <label>Drone Reload Time (frames):
+                    <span class="info-icon">i
+                        <span class="tooltip">Time between drone shots (30-180 frames)</span>
+                    </span>
+                </label>
+                <input type="number" id="droneReloadTime" step="10" min="30" max="180">
+            </div>
+            <div class="setting-item">
+                <label>Drone Bullet Speed:
+                    <span class="info-icon">i
+                        <span class="tooltip">Speed of drone projectiles (1.0-5.0)</span>
+                    </span>
+                </label>
+                <input type="number" id="droneBulletSpeed" step="0.1" min="1" max="5">
+            </div>
+            <div class="setting-item">
+                <label>Drone Bullet Size:
+                    <span class="info-icon">i
+                        <span class="tooltip">Size of drone projectiles (2-8 pixels)</span>
+                    </span>
+                </label>
+                <input type="number" id="droneBulletSize" step="1" min="2" max="8">
+            </div>
+            <div class="setting-item">
+                <label>Drone Target Range:
+                    <span class="info-icon">i
+                        <span class="tooltip">Maximum targeting distance (80-300 pixels)</span>
+                    </span>
+                </label>
+                <input type="number" id="droneTargetRange" step="10" min="80" max="300">
+            </div>
+            <div class="setting-item">
+                <label>Drone Orbit Speed:
+                    <span class="info-icon">i
+                        <span class="tooltip">Rotation speed around tank (0.005-0.05)</span>
+                    </span>
+                </label>
+                <input type="number" id="droneOrbitSpeed" step="0.005" min="0.005" max="0.05">
+            </div>
+        </div>
+        </div>
+        
+        <div id="powerups-tab" class="tab-content">
+        <div class="settings-section">
+            <h3>⚡ Power-up Properties</h3>
+            <div class="setting-item">
+                <label>Power-up Count:
+                    <span class="info-icon">i
+                        <span class="tooltip">Number of power-ups spawned on the map at once (1 - 10)</span>
+                    </span>
+                </label>
+                <input type="number" id="powerupCount" step="1" min="1" max="10">
+            </div>
+            <div class="setting-item">
+                <label>Power-up Size:
+                    <span class="info-icon">i
+                        <span class="tooltip">Visual size of power-up icons in pixels (15 - 40)</span>
+                    </span>
+                </label>
+                <input type="number" id="powerupSize" step="1" min="15" max="40">
+            </div>
+            <div class="setting-item">
+                <label>Respawn Time (frames):
+                    <span class="info-icon">i
+                        <span class="tooltip">Time before a collected power-up respawns (60-900 frames)</span>
+                    </span>
+                </label>
+                <input type="number" id="powerupRespawn" step="30" min="60" max="900">
+            </div>
+        </div>
+        </div>
+        
+        <div id="game-tab" class="tab-content">
+        <div class="settings-section">
+            <h3>🎮 Game Mechanics</h3>
+            <div class="setting-item">
+                <label>Grace Period (frames):
+                    <span class="info-icon">i
+                        <span class="tooltip">Invincibility time after spawning (60-600 frames)</span>
+                    </span>
+                </label>
+                <input type="number" id="gracePeriod" step="30" min="60" max="600">
+            </div>
+            <div class="setting-item">
+                <label>AI Tank Count:
+                    <span class="info-icon">i
+                        <span class="tooltip">Number of computer-controlled enemy tanks (1-20)</span>
+                    </span>
+                </label>
+                <input type="number" id="aiCount" step="1" min="1" max="20">
+            </div>
+            <div class="setting-item">
+                <label>Collectible Count:
+                    <span class="info-icon">i
+                        <span class="tooltip">Number of score collectibles on the map (1-10)</span>
+                    </span>
+                </label>
+                <input type="number" id="collectibleCount" step="1" min="1" max="10">
+            </div>
+        </div>
+        
+        <div class="settings-section">
+            <h3>🔥 Ring of Fire</h3>
+            <div class="setting-item">
+                <label>Enable Ring of Fire:
+                    <span class="info-icon">i
+                        <span class="tooltip">Shrinking safe zone that forces players together</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="ringEnabled" checked>
+            </div>
+            <div class="setting-item">
+                <label>Warning Time (seconds):
+                    <span class="info-icon">i
+                        <span class="tooltip">Time before ring of fire starts closing (10-120 sec)</span>
+                    </span>
+                </label>
+                <input type="number" id="ringWarning" step="5" min="10" max="120">
+            </div>
+            <div class="setting-item">
+                <label>Safe Zone Size (%):
+                    <span class="info-icon">i
+                        <span class="tooltip">Final safe zone size as percentage of map (5-50%)</span>
+                    </span>
+                </label>
+                <input type="number" id="ringSafeZone" step="5" min="5" max="50">
+            </div>
+        </div>
+        
+        <div class="settings-section">
+            <h3>⚔️ Game Rules</h3>
+            <div class="setting-item">
+                <label>Friendly Fire:
+                    <span class="info-icon">i
+                        <span class="tooltip">Allow damage between allied players in team modes</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="friendlyFire">
+            </div>
+        </div>
+        </div>
+        
+        <div id="visuals-tab" class="tab-content">
+        <div class="settings-section">
+            <h3>🎨 Player Colors</h3>
+            <div class="setting-item">
+                <label>Player 1 Primary Color:</label>
+                <input type="color" id="player1Color" value="#4CAF50">
+            </div>
+            <div class="setting-item">
+                <label>Player 1 Secondary Color:</label>
+                <input type="color" id="player1SecondaryColor" value="#2E7D32">
+            </div>
+            <div class="setting-item">
+                <label>Player 2 Primary Color:</label>
+                <input type="color" id="player2Color" value="#ff9800">
+            </div>
+            <div class="setting-item">
+                <label>Player 2 Secondary Color:</label>
+                <input type="color" id="player2SecondaryColor" value="#E65100">
+            </div>
+        </div>
+        </div>
+        
+        <div id="training-tab" class="tab-content">
+        <div class="settings-section">
+            <h3>🎯 Training Mode Settings</h3>
+            <div class="setting-item">
+                <label>Stationary Targets:
+                    <span class="info-icon">i
+                        <span class="tooltip">Number of non-moving practice targets (0-10)</span>
+                    </span>
+                </label>
+                <input type="number" id="trainingStationaryTargets" step="1" min="0" max="10">
+            </div>
+            <div class="setting-item">
+                <label>Moving Targets:
+                    <span class="info-icon">i
+                        <span class="tooltip">Number of moving practice targets (0-10)</span>
+                    </span>
+                </label>
+                <input type="number" id="trainingMovingTargets" step="1" min="0" max="10">
+            </div>
+            <div class="setting-item">
+                <label>Target Health:
+                    <span class="info-icon">i
+                        <span class="tooltip">Hits required to destroy a target (1-10)</span>
+                    </span>
+                </label>
+                <input type="number" id="trainingTargetHealth" step="1" min="1" max="10">
+            </div>
+            <div class="setting-item">
+                <label>Target Size:
+                    <span class="info-icon">i
+                        <span class="tooltip">Size of training targets in pixels (15-50)</span>
+                    </span>
+                </label>
+                <input type="number" id="trainingTargetSize" step="1" min="15" max="50">
+            </div>
+            <div class="setting-item">
+                <label>Target Respawn Time (frames):
+                    <span class="info-icon">i
+                        <span class="tooltip">Time before destroyed targets reappear (60-600)</span>
+                    </span>
+                </label>
+                <input type="number" id="trainingTargetRespawn" step="30" min="60" max="600">
+            </div>
+            <div class="setting-item">
+                <label>Moving Target Speed:
+                    <span class="info-icon">i
+                        <span class="tooltip">Speed of moving practice targets (0.5-3.0)</span>
+                    </span>
+                </label>
+                <input type="number" id="trainingMovingSpeed" step="0.1" min="0.5" max="3">
+            </div>
+            <div class="setting-item">
+                <label>Moving Target Range:
+                    <span class="info-icon">i
+                        <span class="tooltip">Distance targets move back and forth (50-300 pixels)</span>
+                    </span>
+                </label>
+                <input type="number" id="trainingMovingRange" step="10" min="50" max="300">
+            </div>
+        </div>
+        </div>
+        
+        <div id="allowed-powerups-tab" class="tab-content">
+        <div class="settings-section">
+            <h3>🎯 Allowed Power-up Types</h3>
+            <div class="control-buttons">
+                <button class="control-button" onclick="selectAllPowerups()">✅ Select All</button>
+                <button class="control-button" onclick="unselectAllPowerups()">❌ Unselect All</button>
+                <button class="control-button" onclick="randomizePowerups()">🎲 Randomize</button>
+            </div>
+            <div class="setting-item">
+                <label>💥 Scatter Shot:
+                    <span class="info-icon">i
+                        <span class="tooltip">Fires multiple bullets in a cone pattern, great for close-range combat</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="powerup_scatter" checked>
+            </div>
+            <div class="setting-item">
+                <label>⚡ Laser Beam:
+                    <span class="info-icon">i
+                        <span class="tooltip">High-speed beam that instantly hits targets with extended range</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="powerup_laser" checked>
+            </div>
+            <div class="setting-item">
+                <label>🚀 Rocket:
+                    <span class="info-icon">i
+                        <span class="tooltip">Slow but powerful explosive projectile with area damage</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="powerup_rocket" checked>
+            </div>
+            <div class="setting-item">
+                <label>💣 Explosive:
+                    <span class="info-icon">i
+                        <span class="tooltip">Bullets explode on impact, damaging nearby enemies</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="powerup_explosive" checked>
+            </div>
+            <div class="setting-item">
+                <label>🏹 Piercing:
+                    <span class="info-icon">i
+                        <span class="tooltip">Bullets pass through multiple targets without stopping</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="powerup_piercing" checked>
+            </div>
+            <div class="setting-item">
+                <label>💎 Mine:
+                    <span class="info-icon">i
+                        <span class="tooltip">Deploys proximity mines that explode when enemies get close</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="powerup_mine" checked>
+            </div>
+            <div class="setting-item">
+                <label>🤖 Combat Drone:
+                    <span class="info-icon">i
+                        <span class="tooltip">Spawns autonomous combat drones that attack nearby enemies</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="powerup_drone" checked>
+            </div>
+            <div class="setting-item">
+                <label>🎯 Homing Missile:
+                    <span class="info-icon">i
+                        <span class="tooltip">Missiles that track and follow enemy tanks</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="powerup_homing">
+            </div>
+            <div class="setting-item">
+                <label>🔥 Flamethrower:
+                    <span class="info-icon">i
+                        <span class="tooltip">Short-range continuous flame that deals damage over time</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="powerup_flamethrower">
+            </div>
+            <div class="setting-item">
+                <label>❄️ Freeze Ray:
+                    <span class="info-icon">i
+                        <span class="tooltip">Freezes enemies in place temporarily, making them vulnerable</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="powerup_freeze">
+            </div>
+            <div class="setting-item">
+                <label>⚙️ Railgun:
+                    <span class="info-icon">i
+                        <span class="tooltip">Instant high-damage beam that penetrates all obstacles</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="powerup_railgun">
+            </div>
+            <div class="setting-item">
+                <label>⛓️ Chain Lightning:
+                    <span class="info-icon">i
+                        <span class="tooltip">Lightning that jumps between nearby enemies</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="powerup_chain">
+            </div>
+            <div class="setting-item">
+                <label>🪃 Boomerang:
+                    <span class="info-icon">i
+                        <span class="tooltip">Projectile that returns to the shooter, hitting twice</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="powerup_boomerang">
+            </div>
+            <div class="setting-item">
+                <label>🌀 Gravity Vortex:
+                    <span class="info-icon">i
+                        <span class="tooltip">Creates a gravity well that pulls enemies and projectiles</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="powerup_vortex">
+            </div>
+            <div class="setting-item">
+                <label>🌌 Teleport Shot:
+                    <span class="info-icon">i
+                        <span class="tooltip">Teleports your tank to where the shot lands</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="powerup_teleport">
+            </div>
+            <div class="setting-item">
+                <label>🛡️ Shield Wall:
+                    <span class="info-icon">i
+                        <span class="tooltip">Creates a protective barrier that blocks incoming fire</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="powerup_shield">
+            </div>
+            <div class="setting-item">
+                <label>⚾ Super Bouncer:
+                    <span class="info-icon">i
+                        <span class="tooltip">Bullets that bounce off walls multiple times</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="powerup_bouncer">
+            </div>
+            <div class="setting-item">
+                <label>⚡ EMP Blast:
+                    <span class="info-icon">i
+                        <span class="tooltip">Disables enemy weapons and abilities temporarily</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="powerup_emp">
+            </div>
+            <div class="setting-item">
+                <label>🧪 Acid Spray:
+                    <span class="info-icon">i
+                        <span class="tooltip">Sprays corrosive acid that damages over time</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="powerup_acid">
+            </div>
+            <div class="setting-item">
+                <label>🐝 Swarm Missiles:
+                    <span class="info-icon">i
+                        <span class="tooltip">Releases multiple small homing missiles</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="powerup_swarm">
+            </div>
+            <div class="setting-item">
+                <label>👻 Phantom Shot:
+                    <span class="info-icon">i
+                        <span class="tooltip">Bullets phase through walls to hit enemies</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="powerup_phantom">
+            </div>
+            <div class="setting-item">
+                <label>🎱 Ricochet Master:
+                    <span class="info-icon">i
+                        <span class="tooltip">Enhanced bouncing bullets with tracking capabilities</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="powerup_ricochet">
+            </div>
+            <div class="setting-item">
+                <label>🌪️ Tornado:
+                    <span class="info-icon">i
+                        <span class="tooltip">Creates a tornado that moves across the battlefield</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="powerup_tornado">
+            </div>
+            <div class="setting-item">
+                <label>⚫ Black Hole:
+                    <span class="info-icon">i
+                        <span class="tooltip">Forms a black hole that sucks in everything nearby</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="powerup_blackhole">
+            </div>
+            <div class="setting-item">
+                <label>🪞 Mirror Shot:
+                    <span class="info-icon">i
+                        <span class="tooltip">Duplicates your shots in multiple directions</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="powerup_mirror">
+            </div>
+            <div class="setting-item">
+                <label>💣 Cluster Bomb:
+                    <span class="info-icon">i
+                        <span class="tooltip">Bomb that splits into smaller explosives on impact</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="powerup_cluster">
+            </div>
+            <div class="setting-item">
+                <label>⚡ Lightning Strike:
+                    <span class="info-icon">i
+                        <span class="tooltip">Calls down lightning strikes from above</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="powerup_lightning">
+            </div>
+            <div class="setting-item">
+                <label>🛡️ Personal Shield:
+                    <span class="info-icon">i
+                        <span class="tooltip">Temporary invincibility shield around your tank</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="powerup_personalShield">
+            </div>
+            <div class="setting-item">
+                <label>👤 Invisibility Cloak:
+                    <span class="info-icon">i
+                        <span class="tooltip">Makes your tank invisible to enemies</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="powerup_invisibility">
+            </div>
+            <div class="setting-item">
+                <label>💨 Turbo Boost:
+                    <span class="info-icon">i
+                        <span class="tooltip">Temporarily increases movement and turn speed</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="powerup_speedBoost">
+            </div>
+            <div class="setting-item">
+                <label>⏰ Time Warp:
+                    <span class="info-icon">i
+                        <span class="tooltip">Slows down time for everything except you</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="powerup_timeWarp">
+            </div>
+            <div class="setting-item">
+                <label>🎭 Decoy Tank:
+                    <span class="info-icon">i
+                        <span class="tooltip">Creates a fake tank copy to confuse enemies</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="powerup_decoy">
+            </div>
+            <div class="setting-item">
+                <label>🧲 Magnetic Field:
+                    <span class="info-icon">i
+                        <span class="tooltip">Attracts enemy bullets away from you</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="powerup_magnetField">
+            </div>
+            <div class="setting-item">
+                <label>💨 Smoke Screen:
+                    <span class="info-icon">i
+                        <span class="tooltip">Deploys smoke that blocks enemy vision</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="powerup_smokeScreen">
+            </div>
+            <div class="setting-item">
+                <label>❤️ Repair Kit:
+                    <span class="info-icon">i
+                        <span class="tooltip">Repairs damage and restores tank health</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="powerup_healing">
+            </div>
+            <div class="setting-item">
+                <label>🌀 Teleporter:
+                    <span class="info-icon">i
+                        <span class="tooltip">Instantly teleport to a random safe location</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="powerup_teleporter">
+            </div>
+            <div class="setting-item">
+                <label>⚡ Force Field:
+                    <span class="info-icon">i
+                        <span class="tooltip">360-degree shield that deflects projectiles</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="powerup_forceField">
+            </div>
+            <div class="setting-item">
+                <label>🔄 Reflection Armor:
+                    <span class="info-icon">i
+                        <span class="tooltip">Reflects enemy shots back at them</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="powerup_reflection">
+            </div>
+            <div class="setting-item">
+                <label>👻 Phase Shift:
+                    <span class="info-icon">i
+                        <span class="tooltip">Phase through bullets and walls temporarily</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="powerup_phaseShift">
+            </div>
+            <div class="setting-item">
+                <label>⚡ Overcharge:
+                    <span class="info-icon">i
+                        <span class="tooltip">Doubles firing rate and damage output</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="powerup_overcharge">
+            </div>
+            <div class="setting-item">
+                <label>🦇 Vampire Mode:
+                    <span class="info-icon">i
+                        <span class="tooltip">Heal yourself by damaging enemies</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="powerup_vampire">
+            </div>
+            <div class="setting-item">
+                <label>👥 Duplicate:
+                    <span class="info-icon">i
+                        <span class="tooltip">Creates a temporary AI-controlled clone of your tank</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="powerup_duplicate">
+            </div>
+            <div class="setting-item">
+                <label>💥 Ground Pound:
+                    <span class="info-icon">i
+                        <span class="tooltip">Area damage attack centered on your tank</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="powerup_groundPound">
+            </div>
+            <div class="setting-item">
+                <label>🪝 Grapple Hook:
+                    <span class="info-icon">i
+                        <span class="tooltip">Pull enemies toward you or yourself to walls</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="powerup_grappleHook">
+            </div>
+            <div class="setting-item">
+                <label>🔄 Confusion Ray:
+                    <span class="info-icon">i
+                        <span class="tooltip">Reverses enemy tank controls temporarily</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="powerup_reverseControls">
+            </div>
+            <div class="setting-item">
+                <label>🔬 Size Modifier:
+                    <span class="info-icon">i
+                        <span class="tooltip">Shrinks your tank making it harder to hit</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="powerup_sizeChange">
+            </div>
+            <div class="setting-item">
+                <label>🧱 Wall Builder:
+                    <span class="info-icon">i
+                        <span class="tooltip">Creates temporary walls for defense</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="powerup_wallBuilder">
+            </div>
+            <div class="setting-item">
+                <label>📡 Radar Pulse:
+                    <span class="info-icon">i
+                        <span class="tooltip">Reveals all enemies on the map briefly</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="powerup_radar">
+            </div>
+            <div class="setting-item">
+                <label>🕸️ Trap Deployer:
+                    <span class="info-icon">i
+                        <span class="tooltip">Deploys bear traps that immobilize enemies</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="powerup_trap">
+            </div>
+            <div class="setting-item">
+                <label>💣 Kamikaze Mode:
+                    <span class="info-icon">i
+                        <span class="tooltip">Self-destruct with massive area damage</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="powerup_kamikaze">
+            </div>
+            <div class="setting-item">
+                <label>✨ Phoenix Rising:
+                    <span class="info-icon">i
+                        <span class="tooltip">Revive once after being destroyed</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="powerup_resurrect">
+            </div>
+            <div class="setting-item">
+                <label>🧠 Mind Control:
+                    <span class="info-icon">i
+                        <span class="tooltip">Take control of an enemy tank temporarily</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="powerup_mindControl">
+            </div>
+            <div class="setting-item">
+                <label>🌌 Portal Gun:
+                    <span class="info-icon">i
+                        <span class="tooltip">Create linked portals for strategic movement</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="powerup_portal">
+            </div>
+            <div class="setting-item">
+                <label>🌍 Earthquake:
+                    <span class="info-icon">i
+                        <span class="tooltip">Shakes the ground, stunning all enemies</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="powerup_earthquake">
+            </div>
+            <div class="setting-item">
+                <label>🤖 Nanobots:
+                    <span class="info-icon">i
+                        <span class="tooltip">Slowly repairs your tank over time</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="powerup_nanobots">
+            </div>
+            <div class="setting-item">
+                <label>📽️ Hologram:
+                    <span class="info-icon">i
+                        <span class="tooltip">Creates multiple holographic decoys</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="powerup_hologram">
+            </div>
+            <div class="setting-item">
+                <label>🔋 Energy Drain:
+                    <span class="info-icon">i
+                        <span class="tooltip">Steals special ammo from nearby enemies</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="powerup_energyDrain">
+            </div>
+        </div>
+        </div>
+        
+        <div id="hazards-tab" class="tab-content">
+        <div class="settings-section">
+            <h3>⚠️ Environmental Hazards</h3>
+            <div class="control-buttons">
+                <button class="control-button" onclick="selectAllHazards()">✅ Select All</button>
+                <button class="control-button" onclick="unselectAllHazards()">❌ Unselect All</button>
+                <button class="control-button" onclick="randomizeHazards()">🎲 Randomize</button>
+            </div>
+            <div class="setting-item">
+                <label>🌋 Lava Pools:
+                    <span class="info-icon">i
+                        <span class="tooltip">Pools of molten lava that deal continuous damage to tanks</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="hazard_lavaPool">
+            </div>
+            <div class="setting-item">
+                <label>🏜️ Quicksand:
+                    <span class="info-icon">i
+                        <span class="tooltip">Slows movement speed and can trap tanks if they stay too long</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="hazard_quicksand">
+            </div>
+            <div class="setting-item">
+                <label>⚡ Electric Fences:
+                    <span class="info-icon">i
+                        <span class="tooltip">Electrified barriers that damage and stun on contact</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="hazard_electricFence">
+            </div>
+            <div class="setting-item">
+                <label>🌪️ Tornadoes:
+                    <span class="info-icon">i
+                        <span class="tooltip">Moving tornadoes that throw tanks around the battlefield</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="hazard_tornado">
+            </div>
+            <div class="setting-item">
+                <label>☄️ Meteor Shower:
+                    <span class="info-icon">i
+                        <span class="tooltip">Periodic meteor strikes from above with area damage</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="hazard_meteor">
+            </div>
+            <div class="setting-item">
+                <label>🌧️ Acid Rain:
+                    <span class="info-icon">i
+                        <span class="tooltip">Corrosive rain that slowly damages all exposed tanks</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="hazard_acidRain">
+            </div>
+            <div class="setting-item">
+                <label>🌍 Earthquakes:
+                    <span class="info-icon">i
+                        <span class="tooltip">Ground tremors that shake tanks and affect aiming</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="hazard_earthquake">
+            </div>
+            <div class="setting-item">
+                <label>⛈️ Lightning Storms:
+                    <span class="info-icon">i
+                        <span class="tooltip">Random lightning strikes during storms</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="hazard_lightning">
+            </div>
+            <div class="setting-item">
+                <label>❄️ Ice Patches:
+                    <span class="info-icon">i
+                        <span class="tooltip">Slippery ice that makes tanks harder to control</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="hazard_icePatches">
+            </div>
+            <div class="setting-item">
+                <label>💣 Random Mines:
+                    <span class="info-icon">i
+                        <span class="tooltip">Hidden mines that explode when tanks get too close</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="hazard_minefield">
+            </div>
+            <div class="setting-item">
+                <label>🗡️ Spike Traps:
+                    <span class="info-icon">i
+                        <span class="tooltip">Retractable spike traps that damage passing tanks</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="hazard_spikes">
+            </div>
+            <div class="setting-item">
+                <label>🔨 Crushers:
+                    <span class="info-icon">i
+                        <span class="tooltip">Moving walls that crush tanks caught between them</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="hazard_crusher">
+            </div>
+            <div class="setting-item">
+                <label>⚫ Black Holes:
+                    <span class="info-icon">i
+                        <span class="tooltip">Gravitational anomalies that pull in tanks and projectiles</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="hazard_blackHoles">
+            </div>
+            <div class="setting-item">
+                <label>🔥 Fire Walls:
+                    <span class="info-icon">i
+                        <span class="tooltip">Walls of fire that damage tanks passing through</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="hazard_fireWalls">
+            </div>
+            <div class="setting-item">
+                <label>☠️ Poison Gas:
+                    <span class="info-icon">i
+                        <span class="tooltip">Toxic clouds that damage and impair vision</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="hazard_poisonGas">
+            </div>
+            <div class="setting-item">
+                <label>🌊 Flash Floods:
+                    <span class="info-icon">i
+                        <span class="tooltip">Rising water that drowns tanks in low areas</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="hazard_floodWater">
+            </div>
+            <div class="setting-item">
+                <label>🌬️ Sandstorms:
+                    <span class="info-icon">i
+                        <span class="tooltip">Reduces visibility and slows movement</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="hazard_sandstorm">
+            </div>
+            <div class="setting-item">
+                <label>☀️ Solar Flares:
+                    <span class="info-icon">i
+                        <span class="tooltip">Periodic bursts that disable electronics temporarily</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="hazard_solarFlare">
+            </div>
+            <div class="setting-item">
+                <label>♨️ Geysers:
+                    <span class="info-icon">i
+                        <span class="tooltip">Steam geysers that launch tanks into the air</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="hazard_geyser">
+            </div>
+            <div class="setting-item">
+                <label>🕳️ Sinkholes:
+                    <span class="info-icon">i
+                        <span class="tooltip">Ground collapses creating holes tanks can fall into</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="hazard_sinkhole">
+            </div>
+            <div class="setting-item">
+                <label>🏔️ Avalanches:
+                    <span class="info-icon">i
+                        <span class="tooltip">Falling rocks and debris from above</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="hazard_avalanche">
+            </div>
+            <div class="setting-item">
+                <label>💨 Wind Storms:
+                    <span class="info-icon">i
+                        <span class="tooltip">Strong winds that affect projectile trajectories</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="hazard_windStorm">
+            </div>
+            <div class="setting-item">
+                <label>☢️ Radiation Zones:
+                    <span class="info-icon">i
+                        <span class="tooltip">Radiation zones that slowly damage tanks over time</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="hazard_radioactive">
+            </div>
+            <div class="setting-item">
+                <label>🐙 Tentacles:
+                    <span class="info-icon">i
+                        <span class="tooltip">Grabbing tentacles that emerge from the ground</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="hazard_tentacles">
+            </div>
+            <div class="setting-item">
+                <label>🔴 Laser Grid:
+                    <span class="info-icon">i
+                        <span class="tooltip">Moving laser grids that cut through anything</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="hazard_lasergrid">
+            </div>
+            <div class="setting-item">
+                <label>➡️ Conveyor Belts:
+                    <span class="info-icon">i
+                        <span class="tooltip">Moving belts that push tanks in specific directions</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="hazard_conveyor">
+            </div>
+            <div class="setting-item">
+                <label>🧲 Magnetic Anomalies:
+                    <span class="info-icon">i
+                        <span class="tooltip">Magnetic zones that affect metal projectiles</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="hazard_magneticField">
+            </div>
+            <div class="setting-item">
+                <label>👁️ Void Zones:
+                    <span class="info-icon">i
+                        <span class="tooltip">Areas where abilities and weapons don't work</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="hazard_voidZone">
+            </div>
+            <div class="setting-item">
+                <label>💜 Plasma Storms:
+                    <span class="info-icon">i
+                        <span class="tooltip">Energy storms that randomly damage areas</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="hazard_plasmaStorm">
+            </div>
+            <div class="setting-item">
+                <label>⏱️ Time Bubbles:
+                    <span class="info-icon">i
+                        <span class="tooltip">Zones where time moves at different speeds</span>
+                    </span>
+                </label>
+                <input type="checkbox" id="hazard_timeBubble">
+            </div>
+        </div>
+        </div>
+        
+        <div class="settings-buttons">
+            <button class="button" onclick="resetToDefaults()">🔄 Reset Defaults</button>
+            <button class="button" onclick="applySettings()">✅ Apply Settings</button>
+            <button class="button" onclick="hideSettings()">❌ Cancel</button>
         </div>
     </div>
     
-    <div class="settings-section">
-        <h3>🔫 Bullet Properties</h3>
-        <div class="setting-item">
-            <label>Bullet Speed:</label>
-            <input type="number" id="bulletSpeed" step="0.5" min="1" max="10">
-        </div>
-        <div class="setting-item">
-            <label>Bullet Size:</label>
-            <input type="number" id="bulletSize" step="1" min="2" max="10">
-        </div>
-        <div class="setting-item">
-            <label>Bullet Lifetime (frames):</label>
-            <input type="number" id="bulletLifetime" step="30" min="60" max="600">
-        </div>
-    </div>
-    
-    <div class="settings-section">
-        <h3>⚡ Power-up Properties</h3>
-        <div class="setting-item">
-            <label>Power-up Count:</label>
-            <input type="number" id="powerupCount" step="1" min="1" max="10">
-        </div>
-        <div class="setting-item">
-            <label>Power-up Size:</label>
-            <input type="number" id="powerupSize" step="1" min="15" max="40">
-        </div>
-        <div class="setting-item">
-            <label>Respawn Time (frames):</label>
-            <input type="number" id="powerupRespawn" step="30" min="60" max="900">
-        </div>
-    </div>
-    
-    <div class="settings-section">
-        <h3>🎮 Game Mechanics</h3>
-        <div class="setting-item">
-            <label>Grace Period (frames):</label>
-            <input type="number" id="gracePeriod" step="30" min="60" max="600">
-        </div>
-        <div class="setting-item">
-            <label>AI Tank Count:</label>
-            <input type="number" id="aiCount" step="1" min="1" max="20">
-        </div>
-        <div class="setting-item">
-            <label>Collectible Count:</label>
-            <input type="number" id="collectibleCount" step="1" min="1" max="10">
-        </div>
-    </div>
-    
-    <div class="settings-section">
-        <h3>🔥 Ring of Fire</h3>
-        <div class="setting-item">
-            <label>Enable Ring of Fire:</label>
-            <input type="checkbox" id="ringEnabled" checked>
-        </div>
-        <div class="setting-item">
-            <label>Warning Time (seconds):</label>
-            <input type="number" id="ringWarning" step="5" min="10" max="120">
-        </div>
-        <div class="setting-item">
-            <label>Safe Zone Size (%):</label>
-            <input type="number" id="ringSafeZone" step="5" min="5" max="50">
-        </div>
-    </div>
-    
-    <div class="settings-section">
-        <h3>⚔️ Game Rules</h3>
-        <div class="setting-item">
-            <label>Friendly Fire:</label>
-            <input type="checkbox" id="friendlyFire">
-        </div>
-    </div>
-    
-    <div class="settings-section">
-        <h3>🎨 Player Colors</h3>
-        <div class="setting-item">
-            <label>Player 1 Primary Color:</label>
-            <input type="color" id="player1Color" value="#4CAF50">
-        </div>
-        <div class="setting-item">
-            <label>Player 1 Secondary Color:</label>
-            <input type="color" id="player1SecondaryColor" value="#2E7D32">
-        </div>
-        <div class="setting-item">
-            <label>Player 2 Primary Color:</label>
-            <input type="color" id="player2Color" value="#ff9800">
-        </div>
-        <div class="setting-item">
-            <label>Player 2 Secondary Color:</label>
-            <input type="color" id="player2SecondaryColor" value="#E65100">
-        </div>
-    </div>
-    
-    <div class="settings-section">
-        <h3>🎯 Training Mode Settings</h3>
-        <div class="setting-item">
-            <label>Stationary Targets:</label>
-            <input type="number" id="trainingStationaryTargets" step="1" min="0" max="10">
-        </div>
-        <div class="setting-item">
-            <label>Moving Targets:</label>
-            <input type="number" id="trainingMovingTargets" step="1" min="0" max="10">
-        </div>
-        <div class="setting-item">
-            <label>Target Health:</label>
-            <input type="number" id="trainingTargetHealth" step="1" min="1" max="10">
-        </div>
-        <div class="setting-item">
-            <label>Target Size:</label>
-            <input type="number" id="trainingTargetSize" step="1" min="15" max="50">
-        </div>
-        <div class="setting-item">
-            <label>Target Respawn Time (frames):</label>
-            <input type="number" id="trainingTargetRespawn" step="30" min="60" max="600">
-        </div>
-        <div class="setting-item">
-            <label>Moving Target Speed:</label>
-            <input type="number" id="trainingMovingSpeed" step="0.1" min="0.5" max="3">
-        </div>
-        <div class="setting-item">
-            <label>Moving Target Range:</label>
-            <input type="number" id="trainingMovingRange" step="10" min="50" max="300">
-        </div>
-    </div>
-    
-    <div class="settings-section">
-        <h3>🤖 Drone Settings</h3>
-        <div class="setting-item">
-            <label>Drone Size:</label>
-            <input type="number" id="droneSize" step="1" min="8" max="20">
-        </div>
-        <div class="setting-item">
-            <label>Drone Speed:</label>
-            <input type="number" id="droneSpeed" step="0.1" min="0.5" max="3">
-        </div>
-        <div class="setting-item">
-            <label>Drone Orbit Distance:</label>
-            <input type="number" id="droneOrbitDistance" step="5" min="30" max="120">
-        </div>
-        <div class="setting-item">
-            <label>Drone Health:</label>
-            <input type="number" id="droneHealth" step="1" min="1" max="10">
-        </div>
-        <div class="setting-item">
-            <label>Drone Reload Time (frames):</label>
-            <input type="number" id="droneReloadTime" step="10" min="30" max="180">
-        </div>
-        <div class="setting-item">
-            <label>Drone Bullet Speed:</label>
-            <input type="number" id="droneBulletSpeed" step="0.1" min="1" max="5">
-        </div>
-        <div class="setting-item">
-            <label>Drone Bullet Size:</label>
-            <input type="number" id="droneBulletSize" step="1" min="2" max="8">
-        </div>
-        <div class="setting-item">
-            <label>Drone Target Range:</label>
-            <input type="number" id="droneTargetRange" step="10" min="80" max="300">
-        </div>
-        <div class="setting-item">
-            <label>Drone Orbit Speed:</label>
-            <input type="number" id="droneOrbitSpeed" step="0.005" min="0.005" max="0.05">
-        </div>
-    </div>
-    
-    <div class="settings-section">
-        <h3>🎯 Allowed Power-up Types</h3>
-        <div class="setting-item">
-            <label>💥 Scatter Shot:</label>
-            <input type="checkbox" id="powerup_scatter" checked>
-        </div>
-        <div class="setting-item">
-            <label>⚡ Laser Beam:</label>
-            <input type="checkbox" id="powerup_laser" checked>
-        </div>
-        <div class="setting-item">
-            <label>🚀 Rocket:</label>
-            <input type="checkbox" id="powerup_rocket" checked>
-        </div>
-        <div class="setting-item">
-            <label>💣 Explosive:</label>
-            <input type="checkbox" id="powerup_explosive" checked>
-        </div>
-        <div class="setting-item">
-            <label>🏹 Piercing:</label>
-            <input type="checkbox" id="powerup_piercing" checked>
-        </div>
-        <div class="setting-item">
-            <label>💎 Mine:</label>
-            <input type="checkbox" id="powerup_mine" checked>
-        </div>
-        <div class="setting-item">
-            <label>🤖 Combat Drone:</label>
-            <input type="checkbox" id="powerup_drone" checked>
-        </div>
-        <div class="setting-item">
-            <label>🎯 Homing Missile:</label>
-            <input type="checkbox" id="powerup_homing">
-        </div>
-        <div class="setting-item">
-            <label>🔥 Flamethrower:</label>
-            <input type="checkbox" id="powerup_flamethrower">
-        </div>
-        <div class="setting-item">
-            <label>❄️ Freeze Ray:</label>
-            <input type="checkbox" id="powerup_freeze">
-        </div>
-        <div class="setting-item">
-            <label>⚙️ Railgun:</label>
-            <input type="checkbox" id="powerup_railgun">
-        </div>
-        <div class="setting-item">
-            <label>⛓️ Chain Lightning:</label>
-            <input type="checkbox" id="powerup_chain">
-        </div>
-        <div class="setting-item">
-            <label>🪃 Boomerang:</label>
-            <input type="checkbox" id="powerup_boomerang">
-        </div>
-        <div class="setting-item">
-            <label>🌀 Gravity Vortex:</label>
-            <input type="checkbox" id="powerup_vortex">
-        </div>
-        <div class="setting-item">
-            <label>🌌 Teleport Shot:</label>
-            <input type="checkbox" id="powerup_teleport">
-        </div>
-        <div class="setting-item">
-            <label>🛡️ Shield Wall:</label>
-            <input type="checkbox" id="powerup_shield">
-        </div>
-        <div class="setting-item">
-            <label>⚾ Super Bouncer:</label>
-            <input type="checkbox" id="powerup_bouncer">
-        </div>
-        <div class="setting-item">
-            <label>⚡ EMP Blast:</label>
-            <input type="checkbox" id="powerup_emp">
-        </div>
-        <div class="setting-item">
-            <label>🧪 Acid Spray:</label>
-            <input type="checkbox" id="powerup_acid">
-        </div>
-        <div class="setting-item">
-            <label>🐝 Swarm Missiles:</label>
-            <input type="checkbox" id="powerup_swarm">
-        </div>
-        <div class="setting-item">
-            <label>👻 Phantom Shot:</label>
-            <input type="checkbox" id="powerup_phantom">
-        </div>
-        <div class="setting-item">
-            <label>🎱 Ricochet Master:</label>
-            <input type="checkbox" id="powerup_ricochet">
-        </div>
-        <div class="setting-item">
-            <label>🌪️ Tornado:</label>
-            <input type="checkbox" id="powerup_tornado">
-        </div>
-        <div class="setting-item">
-            <label>⚫ Black Hole:</label>
-            <input type="checkbox" id="powerup_blackhole">
-        </div>
-        <div class="setting-item">
-            <label>🪞 Mirror Shot:</label>
-            <input type="checkbox" id="powerup_mirror">
-        </div>
-        <div class="setting-item">
-            <label>💣 Cluster Bomb:</label>
-            <input type="checkbox" id="powerup_cluster">
-        </div>
-        <div class="setting-item">
-            <label>⚡ Lightning Strike:</label>
-            <input type="checkbox" id="powerup_lightning">
-        </div>
-        <div class="setting-item">
-            <label>🛡️ Personal Shield:</label>
-            <input type="checkbox" id="powerup_personalShield">
-        </div>
-        <div class="setting-item">
-            <label>👤 Invisibility Cloak:</label>
-            <input type="checkbox" id="powerup_invisibility">
-        </div>
-        <div class="setting-item">
-            <label>💨 Turbo Boost:</label>
-            <input type="checkbox" id="powerup_speedBoost">
-        </div>
-        <div class="setting-item">
-            <label>⏰ Time Warp:</label>
-            <input type="checkbox" id="powerup_timeWarp">
-        </div>
-        <div class="setting-item">
-            <label>🎭 Decoy Tank:</label>
-            <input type="checkbox" id="powerup_decoy">
-        </div>
-        <div class="setting-item">
-            <label>🧲 Magnetic Field:</label>
-            <input type="checkbox" id="powerup_magnetField">
-        </div>
-        <div class="setting-item">
-            <label>💨 Smoke Screen:</label>
-            <input type="checkbox" id="powerup_smokeScreen">
-        </div>
-        <div class="setting-item">
-            <label>❤️ Repair Kit:</label>
-            <input type="checkbox" id="powerup_healing">
-        </div>
-        <div class="setting-item">
-            <label>🌀 Teleporter:</label>
-            <input type="checkbox" id="powerup_teleporter">
-        </div>
-        <div class="setting-item">
-            <label>⚡ Force Field:</label>
-            <input type="checkbox" id="powerup_forceField">
-        </div>
-        <div class="setting-item">
-            <label>🔄 Reflection Armor:</label>
-            <input type="checkbox" id="powerup_reflection">
-        </div>
-        <div class="setting-item">
-            <label>👻 Phase Shift:</label>
-            <input type="checkbox" id="powerup_phaseShift">
-        </div>
-        <div class="setting-item">
-            <label>⚡ Overcharge:</label>
-            <input type="checkbox" id="powerup_overcharge">
-        </div>
-        <div class="setting-item">
-            <label>🦇 Vampire Mode:</label>
-            <input type="checkbox" id="powerup_vampire">
-        </div>
-        <div class="setting-item">
-            <label>👥 Duplicate:</label>
-            <input type="checkbox" id="powerup_duplicate">
-        </div>
-        <div class="setting-item">
-            <label>💥 Ground Pound:</label>
-            <input type="checkbox" id="powerup_groundPound">
-        </div>
-        <div class="setting-item">
-            <label>🪝 Grapple Hook:</label>
-            <input type="checkbox" id="powerup_grappleHook">
-        </div>
-        <div class="setting-item">
-            <label>🔄 Confusion Ray:</label>
-            <input type="checkbox" id="powerup_reverseControls">
-        </div>
-        <div class="setting-item">
-            <label>🔬 Size Modifier:</label>
-            <input type="checkbox" id="powerup_sizeChange">
-        </div>
-        <div class="setting-item">
-            <label>🧱 Wall Builder:</label>
-            <input type="checkbox" id="powerup_wallBuilder">
-        </div>
-        <div class="setting-item">
-            <label>📡 Radar Pulse:</label>
-            <input type="checkbox" id="powerup_radar">
-        </div>
-        <div class="setting-item">
-            <label>🕸️ Trap Deployer:</label>
-            <input type="checkbox" id="powerup_trap">
-        </div>
-        <div class="setting-item">
-            <label>💣 Kamikaze Mode:</label>
-            <input type="checkbox" id="powerup_kamikaze">
-        </div>
-        <div class="setting-item">
-            <label>✨ Phoenix Rising:</label>
-            <input type="checkbox" id="powerup_resurrect">
-        </div>
-        <div class="setting-item">
-            <label>🧠 Mind Control:</label>
-            <input type="checkbox" id="powerup_mindControl">
-        </div>
-        <div class="setting-item">
-            <label>🌌 Portal Gun:</label>
-            <input type="checkbox" id="powerup_portal">
-        </div>
-        <div class="setting-item">
-            <label>🌍 Earthquake:</label>
-            <input type="checkbox" id="powerup_earthquake">
-        </div>
-        <div class="setting-item">
-            <label>🤖 Nanobots:</label>
-            <input type="checkbox" id="powerup_nanobots">
-        </div>
-        <div class="setting-item">
-            <label>📽️ Hologram:</label>
-            <input type="checkbox" id="powerup_hologram">
-        </div>
-        <div class="setting-item">
-            <label>🔋 Energy Drain:</label>
-            <input type="checkbox" id="powerup_energyDrain">
-        </div>
-    </div>
-    
-    <div class="settings-section">
-        <h3>⚠️ Environmental Hazards</h3>
-        <div class="setting-item">
-            <label>🌋 Lava Pools:</label>
-            <input type="checkbox" id="hazard_lavaPool">
-        </div>
-        <div class="setting-item">
-            <label>🏜️ Quicksand:</label>
-            <input type="checkbox" id="hazard_quicksand">
-        </div>
-        <div class="setting-item">
-            <label>⚡ Electric Fences:</label>
-            <input type="checkbox" id="hazard_electricFence">
-        </div>
-        <div class="setting-item">
-            <label>🌪️ Tornadoes:</label>
-            <input type="checkbox" id="hazard_tornado">
-        </div>
-        <div class="setting-item">
-            <label>☄️ Meteor Shower:</label>
-            <input type="checkbox" id="hazard_meteor">
-        </div>
-        <div class="setting-item">
-            <label>🌧️ Acid Rain:</label>
-            <input type="checkbox" id="hazard_acidRain">
-        </div>
-        <div class="setting-item">
-            <label>🌍 Earthquakes:</label>
-            <input type="checkbox" id="hazard_earthquake">
-        </div>
-        <div class="setting-item">
-            <label>⛈️ Lightning Storms:</label>
-            <input type="checkbox" id="hazard_lightning">
-        </div>
-        <div class="setting-item">
-            <label>❄️ Ice Patches:</label>
-            <input type="checkbox" id="hazard_icePatches">
-        </div>
-        <div class="setting-item">
-            <label>💣 Random Mines:</label>
-            <input type="checkbox" id="hazard_minefield">
-        </div>
-        <div class="setting-item">
-            <label>🗡️ Spike Traps:</label>
-            <input type="checkbox" id="hazard_spikes">
-        </div>
-        <div class="setting-item">
-            <label>🔨 Crushers:</label>
-            <input type="checkbox" id="hazard_crusher">
-        </div>
-        <div class="setting-item">
-            <label>⚫ Black Holes:</label>
-            <input type="checkbox" id="hazard_blackHoles">
-        </div>
-        <div class="setting-item">
-            <label>🔥 Fire Walls:</label>
-            <input type="checkbox" id="hazard_fireWalls">
-        </div>
-        <div class="setting-item">
-            <label>☠️ Poison Gas:</label>
-            <input type="checkbox" id="hazard_poisonGas">
-        </div>
-        <div class="setting-item">
-            <label>🌊 Flash Floods:</label>
-            <input type="checkbox" id="hazard_floodWater">
-        </div>
-        <div class="setting-item">
-            <label>🌬️ Sandstorms:</label>
-            <input type="checkbox" id="hazard_sandstorm">
-        </div>
-        <div class="setting-item">
-            <label>☀️ Solar Flares:</label>
-            <input type="checkbox" id="hazard_solarFlare">
-        </div>
-        <div class="setting-item">
-            <label>♨️ Geysers:</label>
-            <input type="checkbox" id="hazard_geyser">
-        </div>
-        <div class="setting-item">
-            <label>🕳️ Sinkholes:</label>
-            <input type="checkbox" id="hazard_sinkhole">
-        </div>
-        <div class="setting-item">
-            <label>🏔️ Avalanches:</label>
-            <input type="checkbox" id="hazard_avalanche">
-        </div>
-        <div class="setting-item">
-            <label>💨 Wind Storms:</label>
-            <input type="checkbox" id="hazard_windStorm">
-        </div>
-        <div class="setting-item">
-            <label>☢️ Radiation Zones:</label>
-            <input type="checkbox" id="hazard_radioactive">
-        </div>
-        <div class="setting-item">
-            <label>🐙 Tentacles:</label>
-            <input type="checkbox" id="hazard_tentacles">
-        </div>
-        <div class="setting-item">
-            <label>🔴 Laser Grid:</label>
-            <input type="checkbox" id="hazard_lasergrid">
-        </div>
-        <div class="setting-item">
-            <label>➡️ Conveyor Belts:</label>
-            <input type="checkbox" id="hazard_conveyor">
-        </div>
-        <div class="setting-item">
-            <label>🧲 Magnetic Anomalies:</label>
-            <input type="checkbox" id="hazard_magneticField">
-        </div>
-        <div class="setting-item">
-            <label>👁️ Void Zones:</label>
-            <input type="checkbox" id="hazard_voidZone">
-        </div>
-        <div class="setting-item">
-            <label>💜 Plasma Storms:</label>
-            <input type="checkbox" id="hazard_plasmaStorm">
-        </div>
-        <div class="setting-item">
-            <label>⏱️ Time Bubbles:</label>
-            <input type="checkbox" id="hazard_timeBubble">
-        </div>
-    </div>
-    
-    <div class="settings-buttons">
-        <button class="button" onclick="resetToDefaults()">🔄 Reset Defaults</button>
-        <button class="button" onclick="applySettings()">✅ Apply Settings</button>
-        <button class="button" onclick="hideSettings()">❌ Cancel</button>
-    </div>
-</div>
+    <script src="config.js"></script>
+    <script src="settings.js"></script>
+</body>
+</html>

@@ -1,7 +1,7 @@
 // Game Configuration
 const CONFIG = {
     // Global Scale Settings
-    GLOBAL_SCALE: 0.6, // Scale everything down (0.5 = half size, 1.0 = normal, 2.0 = double)
+    GLOBAL_SCALE: 0.8, // Scale everything down (0.5 = half size, 1.0 = normal, 2.0 = double)
     
     // Tank Properties
     TANK_SIZE: 30,

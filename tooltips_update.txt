@@ -1,0 +1,81 @@
+// Remaining power-ups that need tooltips (after line 419):
+
+⚙️ Railgun -> Instant high-damage beam that penetrates all obstacles
+⛓️ Chain Lightning -> Lightning that jumps between nearby enemies
+🪃 Boomerang -> Projectile that returns to the shooter, hitting twice
+🌀 Gravity Vortex -> Creates a gravity well that pulls enemies and projectiles
+🌌 Teleport Shot -> Teleports your tank to where the shot lands
+🛡️ Shield Wall -> Creates a protective barrier that blocks incoming fire
+⚾ Super Bouncer -> Bullets that bounce off walls multiple times
+⚡ EMP Blast -> Disables enemy weapons and abilities temporarily
+🧪 Acid Spray -> Sprays corrosive acid that damages over time
+🐝 Swarm Missiles -> Releases multiple small homing missiles
+👻 Phantom Shot -> Bullets phase through walls to hit enemies
+🎱 Ricochet Master -> Enhanced bouncing bullets with tracking capabilities
+🌪️ Tornado -> Creates a tornado that moves across the battlefield
+⚫ Black Hole -> Forms a black hole that sucks in everything nearby
+🪞 Mirror Shot -> Duplicates your shots in multiple directions
+💣 Cluster Bomb -> Bomb that splits into smaller explosives on impact
+⚡ Lightning Strike -> Calls down lightning strikes from above
+🛡️ Personal Shield -> Temporary invincibility shield around your tank
+👤 Invisibility Cloak -> Makes your tank invisible to enemies
+💨 Turbo Boost -> Temporarily increases movement and turn speed
+⏰ Time Warp -> Slows down time for everything except you
+🎭 Decoy Tank -> Creates a fake tank copy to confuse enemies
+🧲 Magnetic Field -> Attracts enemy bullets away from you
+💨 Smoke Screen -> Deploys smoke that blocks enemy vision
+❤️ Repair Kit -> Repairs damage and restores tank health
+🌀 Teleporter -> Instantly teleport to a random safe location
+⚡ Force Field -> 360-degree shield that deflects projectiles
+🔄 Reflection Armor -> Reflects enemy shots back at them
+👻 Phase Shift -> Phase through bullets and walls temporarily
+⚡ Overcharge -> Doubles firing rate and damage output
+🦇 Vampire Mode -> Heal yourself by damaging enemies
+👥 Duplicate -> Creates a temporary AI-controlled clone of your tank
+💥 Ground Pound -> Area damage attack centered on your tank
+🪝 Grapple Hook -> Pull enemies toward you or yourself to walls
+🔄 Confusion Ray -> Reverses enemy tank controls temporarily
+🔬 Size Modifier -> Shrinks your tank making it harder to hit
+🧱 Wall Builder -> Creates temporary walls for defense
+📡 Radar Pulse -> Reveals all enemies on the map briefly
+🕸️ Trap Deployer -> Deploys bear traps that immobilize enemies
+💣 Kamikaze Mode -> Self-destruct with massive area damage
+✨ Phoenix Rising -> Revive once after being destroyed
+🧠 Mind Control -> Take control of an enemy tank temporarily
+🌌 Portal Gun -> Create linked portals for strategic movement
+🌍 Earthquake -> Shakes the ground, stunning all enemies
+🤖 Nanobots -> Slowly repairs your tank over time
+📽️ Hologram -> Creates multiple holographic decoys
+🔋 Energy Drain -> Steals special ammo from nearby enemies
+
+// All hazards need tooltips:
+🌋 Lava Pools -> Pools of molten lava that deal continuous damage to tanks
+🏜️ Quicksand -> Slows movement speed and can trap tanks if they stay too long
+⚡ Electric Fences -> Electrified barriers that damage and stun on contact
+🌪️ Tornadoes -> Moving tornadoes that throw tanks around the battlefield
+☄️ Meteor Shower -> Periodic meteor strikes from above with area damage
+🌧️ Acid Rain -> Corrosive rain that slowly damages all exposed tanks
+🌍 Earthquakes -> Ground tremors that shake tanks and affect aiming
+⛈️ Lightning Storms -> Random lightning strikes during storms
+❄️ Ice Patches -> Slippery ice that makes tanks harder to control
+💣 Random Mines -> Hidden mines that explode when tanks get too close
+🗡️ Spike Traps -> Retractable spike traps that damage passing tanks
+🔨 Crushers -> Moving walls that crush tanks caught between them
+⚫ Black Holes -> Gravitational anomalies that pull in tanks and projectiles
+🔥 Fire Walls -> Walls of fire that damage tanks passing through
+☠️ Poison Gas -> Toxic clouds that damage and impair vision
+🌊 Flash Floods -> Rising water that drowns tanks in low areas
+🌬️ Sandstorms -> Reduces visibility and slows movement
+☀️ Solar Flares -> Periodic bursts that disable electronics temporarily
+♨️ Geysers -> Steam geysers that launch tanks into the air
+🕳️ Sinkholes -> Ground collapses creating holes tanks can fall into
+🏔️ Avalanches -> Falling rocks and debris from above
+💨 Wind Storms -> Strong winds that affect projectile trajectories
+☢️ Radiation Zones -> Radiation zones that slowly damage tanks over time
+🐙 Tentacles -> Grabbing tentacles that emerge from the ground
+🔴 Laser Grid -> Moving laser grids that cut through anything
+➡️ Conveyor Belts -> Moving belts that push tanks in specific directions
+🧲 Magnetic Anomalies -> Magnetic zones that affect metal projectiles
+👁️ Void Zones -> Areas where abilities and weapons don't work
+💜 Plasma Storms -> Energy storms that randomly damage areas
+⏱️ Time Bubbles -> Zones where time moves at different speeds
