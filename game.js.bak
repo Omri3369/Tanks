@@ -8,9 +8,9 @@ let gameMode = 0;
 let gameRunning = false;
 let mapSize = 'medium'; // 'small', 'medium', 'large'
 let mapSizes = {
-    small: { width: 800, height: 600 },
+    small: { width: 1000, height: 700 },
     medium: { width: 1200, height: 800 },
-    large: { width: 1600, height: 1000 }
+    large: { width: 1400, height: 900 }
 };
 let tanks = [];
 let bullets = [];
@@ -32,7 +32,7 @@ let gameWinner = null;
 let graceTimer = 0;
 let collectibleSpawnTimer = 0;
 
-// Terrain system variables
+// Battlefield terrain system
 let terrainTiles = [];
 let terrainFeatures = [];
 let terrainCanvas = null;
@@ -57,14 +57,19 @@ let camera = {
     zoomStartTime: 0
 };
 
-// Use CONFIG values (can be modified by settings)
-let TANK_SIZE = CONFIG.TANK_SIZE;
-let TANK_SPEED = CONFIG.TANK_SPEED;
+// Use CONFIG values (can be modified by settings) - Apply global scale
+let TANK_SIZE = CONFIG.TANK_SIZE * CONFIG.GLOBAL_SCALE;
+let TANK_SPEED = CONFIG.TANK_SPEED * CONFIG.GLOBAL_SCALE;
 let TANK_TURN_SPEED = CONFIG.TANK_TURN_SPEED;
-let BULLET_SPEED = CONFIG.BULLET_SPEED;
-let BULLET_SIZE = CONFIG.BULLET_SIZE;
+let BULLET_SPEED = CONFIG.BULLET_SPEED * CONFIG.GLOBAL_SCALE;
+let BULLET_SIZE = CONFIG.BULLET_SIZE * CONFIG.GLOBAL_SCALE;
 let BULLET_LIFETIME = CONFIG.BULLET_LIFETIME;
-let POWERUP_SIZE = CONFIG.POWERUP_SIZE;
+let POWERUP_SIZE = CONFIG.POWERUP_SIZE * CONFIG.GLOBAL_SCALE;
+
+// Kill Feed System
+const killFeed = [];
+const KILL_FEED_DURATION = 5000; // Messages stay for 5 seconds
+const MAX_KILL_FEED_MESSAGES = 5;
 
 // Initialize AI system
 const aiSystem = new AIBehavior();
@@ -118,6 +123,10 @@ class Tank {
         // Pickup notification
         this.pickupNotification = null;
         this.pickupTimer = 0;
+        
+        // Killstreak tracking
+        this.killStreak = 0;
+        this.lastKillTime = 0;
     }
     
     generateDefaultSecondaryStatic(primaryColor) {
@@ -163,17 +172,17 @@ class Tank {
         const boundedX = Math.max(TANK_SIZE/2, Math.min(canvas.width - TANK_SIZE/2, newX));
         const boundedY = Math.max(TANK_SIZE/2, Math.min(canvas.height - TANK_SIZE/2, newY));
         
-        // Only move if no wall collision
-        if (!this.checkWallCollision(boundedX, boundedY)) {
+        // Only move if no wall collision AND no tank collision
+        if (!this.checkWallCollision(boundedX, boundedY) && !this.checkTankCollision(boundedX, boundedY)) {
             this.x = boundedX;
             this.y = boundedY;
         } else {
             // Try moving only on X axis
-            if (!this.checkWallCollision(boundedX, this.y)) {
+            if (!this.checkWallCollision(boundedX, this.y) && !this.checkTankCollision(boundedX, this.y)) {
                 this.x = boundedX;
             }
             // Try moving only on Y axis
-            else if (!this.checkWallCollision(this.x, boundedY)) {
+            else if (!this.checkWallCollision(this.x, boundedY) && !this.checkTankCollision(this.x, boundedY)) {
                 this.y = boundedY;
             }
         }
@@ -1091,8 +1100,14 @@ class Tank {
         }
     }
     
-    destroy() {
+    destroy(killer = null) {
         this.alive = false;
+        
+        // Add to kill feed
+        if (killer) {
+            addKillFeedMessage(killer, this);
+        }
+        
         // Create explosion effect
         explosions.push(new Explosion(this.x, this.y));
         
@@ -2326,7 +2341,7 @@ class Target {
     constructor(x, y, type = 'stationary') {
         this.x = x;
         this.y = y;
-        this.size = CONFIG.TRAINING_TARGET_SIZE;
+        this.size = CONFIG.TRAINING_TARGET_SIZE * CONFIG.GLOBAL_SCALE;
         this.type = type; // 'stationary' or 'moving'
         this.health = CONFIG.TRAINING_TARGET_HEALTH;
         this.maxHealth = CONFIG.TRAINING_TARGET_HEALTH;
@@ -2492,12 +2507,12 @@ class Drone {
         this.owner = owner;
         this.x = owner.x;
         this.y = owner.y;
-        this.size = CONFIG.DRONE_SIZE;
+        this.size = CONFIG.DRONE_SIZE * CONFIG.GLOBAL_SCALE;
         this.health = CONFIG.DRONE_HEALTH;
         this.maxHealth = CONFIG.DRONE_HEALTH;
         this.alive = true;
         this.orbitAngle = Math.random() * Math.PI * 2;
-        this.orbitDistance = CONFIG.DRONE_ORBIT_DISTANCE;
+        this.orbitDistance = CONFIG.DRONE_ORBIT_DISTANCE * CONFIG.GLOBAL_SCALE;
         this.reloadTime = 0;
         this.target = null;
         this.targetingRange = CONFIG.DRONE_TARGET_RANGE;
@@ -3027,6 +3042,9 @@ function setMapSize(size) {
     const dimensions = mapSizes[size];
     canvas.width = dimensions.width;
     canvas.height = dimensions.height;
+    // Regenerate terrain for new canvas size
+    terrainCached = false; // Force regeneration
+    generateTerrainTiles();
 }
 
 function createScoreBoard() {
@@ -3200,7 +3218,6 @@ function startGame(mode) {
     startScreen.classList.add('hidden');
     canvas.classList.remove('hidden');
     scoreBoard.classList.remove('hidden');
-    controls.classList.remove('hidden');
     
     init();
 }
@@ -3224,7 +3241,7 @@ function init() {
     aiSystem.initialize(CONFIG, gameState);
     inputHandler.initialize(CONFIG);
     
-    // Generate terrain for battlefield
+    // Generate terrain tiles for battlefield
     generateTerrainTiles();
     
     generateMaze();
@@ -3305,7 +3322,7 @@ function init() {
         }, 2, PLAYER2_SECONDARY_COLOR));
     }
     
-    for (let i = 0; i < 2; i++) {
+    for (let i = 0; i < CONFIG.POWERUP_COUNT; i++) {
         powerUps.push(new PowerUp(
             Math.random() * (canvas.width - 100) + 50,
             Math.random() * (canvas.height - 100) + 50
@@ -3336,6 +3353,9 @@ function update() {
     if (graceTimer > 0) {
         graceTimer--;
     }
+    
+    // Update kill feed
+    updateKillFeed();
     
     tanks.forEach(tank => tank.update());
     targets.forEach(target => target.update());
@@ -3399,7 +3419,7 @@ function update() {
         
         for (let tank of tanks) {
             if (bullet.checkTankCollision(tank)) {
-                tank.destroy();
+                tank.destroy(bullet.owner);
                 return false;
             }
         }
@@ -3455,10 +3475,8 @@ function resetRound() {
     // Set grace period (3 seconds at 60fps)
     graceTimer = 180;
     
-    // Regenerate terrain for new round
+    // Regenerate terrain and maze
     generateTerrainTiles();
-    
-    // Regenerate the maze and all elements
     generateMaze();
     
     // Reset ring of fire
@@ -3468,7 +3486,7 @@ function resetRound() {
     powerUps = [];
     collectibles = [];
     
-    for (let i = 0; i < 2; i++) {
+    for (let i = 0; i < CONFIG.POWERUP_COUNT; i++) {
         powerUps.push(new PowerUp(
             Math.random() * (canvas.width - 100) + 50,
             Math.random() * (canvas.height - 100) + 50
@@ -3500,14 +3518,423 @@ function resetRound() {
     });
 }
 
+function generateTerrainTiles() {
+    terrainTiles = [];
+    terrainFeatures = [];
+    terrainCached = false; // Mark cache as invalid
+    const tileSize = 40 * CONFIG.GLOBAL_SCALE;
+    
+    // Define tile types with different probabilities
+    const tileTypes = [
+        { type: 'dirt', color: '#8B7D6B', weight: 30 },
+        { type: 'sand', color: '#C4B5A0', weight: 20 },
+        { type: 'mud', color: '#6B5D4F', weight: 15 },
+        { type: 'gravel', color: '#9E9E9E', weight: 15 },
+        { type: 'grass', color: '#7A8B5D', weight: 10 },
+        { type: 'scorched', color: '#4A3C28', weight: 10 }
+    ];
+    
+    // Generate base tiles
+    for (let x = 0; x < canvas.width; x += tileSize) {
+        for (let y = 0; y < canvas.height; y += tileSize) {
+            const random = Math.random() * 100;
+            let cumWeight = 0;
+            let selectedType = tileTypes[0];
+            
+            for (const type of tileTypes) {
+                cumWeight += type.weight;
+                if (random < cumWeight) {
+                    selectedType = type;
+                    break;
+                }
+            }
+            
+            terrainTiles.push({
+                x: x,
+                y: y,
+                size: tileSize,
+                type: selectedType.type,
+                baseColor: selectedType.color,
+                variation: Math.random() * 0.2 - 0.1 // Color variation
+            });
+        }
+    }
+    
+    // Generate terrain features
+    const featureCount = Math.floor(Math.random() * 10) + 15;
+    for (let i = 0; i < featureCount; i++) {
+        const featureType = Math.random();
+        const x = Math.random() * canvas.width;
+        const y = Math.random() * canvas.height;
+        
+        if (featureType < 0.3) {
+            // Crater
+            terrainFeatures.push({
+                type: 'crater',
+                x: x,
+                y: y,
+                radius: (Math.random() * 30 + 20) * CONFIG.GLOBAL_SCALE,
+                depth: Math.random() * 0.3 + 0.2
+            });
+        } else if (featureType < 0.5) {
+            // Tire tracks
+            terrainFeatures.push({
+                type: 'tracks',
+                x: x,
+                y: y,
+                angle: Math.random() * Math.PI * 2,
+                length: (Math.random() * 80 + 40) * CONFIG.GLOBAL_SCALE,
+                width: (Math.random() * 10 + 8) * CONFIG.GLOBAL_SCALE
+            });
+        } else if (featureType < 0.7) {
+            // Rock/debris
+            terrainFeatures.push({
+                type: 'debris',
+                x: x,
+                y: y,
+                size: (Math.random() * 15 + 5) * CONFIG.GLOBAL_SCALE,
+                angle: Math.random() * Math.PI * 2
+            });
+        } else {
+            // Vegetation patch
+            terrainFeatures.push({
+                type: 'vegetation',
+                x: x,
+                y: y,
+                radius: (Math.random() * 25 + 15) * CONFIG.GLOBAL_SCALE
+            });
+        }
+    }
+}
+
+function drawBattlefieldTerrain() {
+    // Check if we need to create or update the cached terrain
+    if (!terrainCached || !terrainCanvas) {
+        // Create off-screen canvas for caching if needed
+        if (!terrainCanvas) {
+            terrainCanvas = document.createElement('canvas');
+            terrainCtx = terrainCanvas.getContext('2d');
+        }
+        
+        // Set canvas size
+        terrainCanvas.width = canvas.width;
+        terrainCanvas.height = canvas.height;
+        
+        // Render terrain to cache
+        renderTerrainToCache();
+        terrainCached = true;
+    }
+    
+    // Draw cached terrain to main canvas
+    ctx.drawImage(terrainCanvas, 0, 0);
+}
+
+function renderTerrainToCache() {
+    console.log('Rendering terrain to cache, tiles:', terrainTiles.length, 'features:', terrainFeatures.length);
+    const tileSize = 40 * CONFIG.GLOBAL_SCALE;
+    
+    // Base layer - test with bright color to see if it's working
+    terrainCtx.fillStyle = '#FF0000';  // RED for testing
+    terrainCtx.fillRect(0, 0, terrainCanvas.width, terrainCanvas.height);
+    
+    // Draw tiles with variations
+    terrainTiles.forEach((tile, index) => {
+        if (index < 5) console.log('Drawing tile:', tile);  // Log first 5 tiles
+        // Apply color variation
+        const r = parseInt(tile.baseColor.substr(1, 2), 16);
+        const g = parseInt(tile.baseColor.substr(3, 2), 16);
+        const b = parseInt(tile.baseColor.substr(5, 2), 16);
+        
+        const variation = tile.variation;
+        const newR = Math.max(0, Math.min(255, r + r * variation));
+        const newG = Math.max(0, Math.min(255, g + g * variation));
+        const newB = Math.max(0, Math.min(255, b + b * variation));
+        
+        terrainCtx.fillStyle = `rgb(${Math.floor(newR)}, ${Math.floor(newG)}, ${Math.floor(newB)})`;
+        terrainCtx.fillRect(tile.x, tile.y, tile.size - 1, tile.size - 1);
+        
+        // Add texture patterns based on tile type
+        terrainCtx.save();
+        if (tile.type === 'gravel') {
+            // Draw small dots for gravel texture
+            terrainCtx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+            for (let i = 0; i < 5; i++) {
+                const dx = tile.x + Math.random() * tile.size;
+                const dy = tile.y + Math.random() * tile.size;
+                terrainCtx.beginPath();
+                terrainCtx.arc(dx, dy, 1, 0, Math.PI * 2);
+                terrainCtx.fill();
+            }
+        } else if (tile.type === 'sand') {
+            // Draw subtle lines for sand texture
+            terrainCtx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+            terrainCtx.lineWidth = 1;
+            terrainCtx.beginPath();
+            terrainCtx.moveTo(tile.x, tile.y + tile.size * 0.3);
+            terrainCtx.lineTo(tile.x + tile.size, tile.y + tile.size * 0.7);
+            terrainCtx.stroke();
+        } else if (tile.type === 'grass') {
+            // Draw small lines for grass texture
+            terrainCtx.strokeStyle = 'rgba(100, 140, 60, 0.3)';
+            terrainCtx.lineWidth = 1;
+            for (let i = 0; i < 3; i++) {
+                const gx = tile.x + Math.random() * tile.size;
+                const gy = tile.y + Math.random() * tile.size;
+                terrainCtx.beginPath();
+                terrainCtx.moveTo(gx, gy);
+                terrainCtx.lineTo(gx + 2, gy - 4);
+                terrainCtx.stroke();
+            }
+        }
+        terrainCtx.restore();
+    });
+    
+    // Draw terrain features
+    terrainFeatures.forEach(feature => {
+        terrainCtx.save();
+        
+        if (feature.type === 'crater') {
+            // Draw crater
+            const gradient = terrainCtx.createRadialGradient(
+                feature.x, feature.y, 0,
+                feature.x, feature.y, feature.radius
+            );
+            gradient.addColorStop(0, `rgba(40, 30, 20, ${feature.depth})`);
+            gradient.addColorStop(0.7, `rgba(50, 40, 30, ${feature.depth * 0.5})`);
+            gradient.addColorStop(1, 'rgba(60, 50, 40, 0)');
+            terrainCtx.fillStyle = gradient;
+            terrainCtx.beginPath();
+            terrainCtx.arc(feature.x, feature.y, feature.radius, 0, Math.PI * 2);
+            terrainCtx.fill();
+            
+            // Add rim highlight
+            terrainCtx.strokeStyle = 'rgba(80, 70, 60, 0.2)';
+            terrainCtx.lineWidth = 2;
+            terrainCtx.stroke();
+        } else if (feature.type === 'tracks') {
+            // Draw tire tracks
+            terrainCtx.translate(feature.x, feature.y);
+            terrainCtx.rotate(feature.angle);
+            terrainCtx.fillStyle = 'rgba(40, 35, 30, 0.15)';
+            
+            // Left track
+            terrainCtx.fillRect(-feature.width/2 - 2, -feature.length/2, 3, feature.length);
+            // Right track
+            terrainCtx.fillRect(feature.width/2 - 1, -feature.length/2, 3, feature.length);
+            
+            // Track pattern
+            terrainCtx.fillStyle = 'rgba(30, 25, 20, 0.1)';
+            for (let i = -feature.length/2; i < feature.length/2; i += 8) {
+                terrainCtx.fillRect(-feature.width/2 - 3, i, 5, 4);
+                terrainCtx.fillRect(feature.width/2 - 2, i, 5, 4);
+            }
+        } else if (feature.type === 'debris') {
+            // Draw small rocks/debris
+            terrainCtx.translate(feature.x, feature.y);
+            terrainCtx.rotate(feature.angle);
+            terrainCtx.fillStyle = 'rgba(60, 55, 50, 0.4)';
+            terrainCtx.beginPath();
+            terrainCtx.moveTo(-feature.size/2, 0);
+            terrainCtx.lineTo(0, -feature.size/2);
+            terrainCtx.lineTo(feature.size/2, 0);
+            terrainCtx.lineTo(0, feature.size/2);
+            terrainCtx.closePath();
+            terrainCtx.fill();
+            
+            // Add shadow
+            terrainCtx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+            terrainCtx.beginPath();
+            terrainCtx.ellipse(2, 2, feature.size/2, feature.size/3, 0, 0, Math.PI * 2);
+            terrainCtx.fill();
+        } else if (feature.type === 'vegetation') {
+            // Draw vegetation patches
+            const gradient = terrainCtx.createRadialGradient(
+                feature.x, feature.y, 0,
+                feature.x, feature.y, feature.radius
+            );
+            gradient.addColorStop(0, 'rgba(100, 120, 70, 0.2)');
+            gradient.addColorStop(1, 'rgba(90, 110, 60, 0)');
+            terrainCtx.fillStyle = gradient;
+            terrainCtx.beginPath();
+            terrainCtx.arc(feature.x, feature.y, feature.radius, 0, Math.PI * 2);
+            terrainCtx.fill();
+            
+            // Add some grass blades
+            terrainCtx.strokeStyle = 'rgba(80, 100, 50, 0.3)';
+            terrainCtx.lineWidth = 1;
+            for (let i = 0; i < 8; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const dist = Math.random() * feature.radius;
+                const gx = feature.x + Math.cos(angle) * dist;
+                const gy = feature.y + Math.sin(angle) * dist;
+                terrainCtx.beginPath();
+                terrainCtx.moveTo(gx, gy);
+                terrainCtx.lineTo(gx + Math.random() * 4 - 2, gy - 5);
+                terrainCtx.stroke();
+            }
+        }
+        
+        terrainCtx.restore();
+    });
+}
+
+// Kill Feed Functions
+function getKillstreakMessage(streak) {
+    const messages = {
+        3: '🔥 ON FIRE!',
+        5: '⚡ UNSTOPPABLE!',
+        7: '💀 DOMINATING!',
+        10: '👑 GODLIKE!',
+        15: '🌟 LEGENDARY!',
+        20: '💫 MYTHICAL!'
+    };
+    
+    for (let threshold of [20, 15, 10, 7, 5, 3]) {
+        if (streak >= threshold) {
+            return messages[threshold];
+        }
+    }
+    return null;
+}
+
+function addKillFeedMessage(killer, victim) {
+    // Update killer's streak if it's a player/AI tank
+    let streakMessage = null;
+    if (killer && killer.killStreak !== undefined) {
+        const now = Date.now();
+        // Reset streak if too much time has passed (10 seconds)
+        if (now - killer.lastKillTime > 10000) {
+            killer.killStreak = 0;
+        }
+        killer.killStreak++;
+        killer.lastKillTime = now;
+        
+        streakMessage = getKillstreakMessage(killer.killStreak);
+    }
+    
+    // Reset victim's streak
+    if (victim && victim.killStreak !== undefined) {
+        if (victim.killStreak >= 3) {
+            // Add shutdown message if victim had a streak
+            const shutdownMessage = {
+                killerName: killer ? (killer.isAI ? `AI Tank ${killer.id || ''}` : `Player ${killer.playerNum || ''}`) : 'Environment',
+                victimName: victim.isAI ? `AI Tank ${victim.id || ''}` : `Player ${victim.playerNum || ''}`,
+                killerColor: killer ? killer.color : '#808080',
+                victimColor: victim.color,
+                timestamp: Date.now(),
+                weaponType: 'shutdown',
+                special: `💥 SHUTDOWN! (${victim.killStreak} streak ended)`
+            };
+            killFeed.unshift(shutdownMessage);
+        }
+        victim.killStreak = 0;
+    }
+    
+    const message = {
+        killerName: killer ? (killer.isAI ? `AI Tank ${killer.id || ''}` : `Player ${killer.playerNum || ''}`) : 'Environment',
+        victimName: victim.isAI ? `AI Tank ${victim.id || ''}` : `Player ${victim.playerNum || ''}`,
+        killerColor: killer ? killer.color : '#808080',
+        victimColor: victim.color,
+        timestamp: Date.now(),
+        weaponType: killer ? (killer.powerUp || 'standard') : 'hazard',
+        special: streakMessage
+    };
+    
+    killFeed.unshift(message);
+    
+    // Keep only the most recent messages
+    while (killFeed.length > MAX_KILL_FEED_MESSAGES) {
+        killFeed.pop();
+    }
+}
+
+function updateKillFeed() {
+    // Remove old messages
+    const now = Date.now();
+    while (killFeed.length > 0 && now - killFeed[killFeed.length - 1].timestamp > KILL_FEED_DURATION) {
+        killFeed.pop();
+    }
+}
+
+function drawKillFeed() {
+    const x = canvas.width - 20;
+    let y = 100;
+    const lineHeight = 30;
+    
+    ctx.save();
+    ctx.font = 'bold 16px Arial';
+    ctx.textAlign = 'right';
+    
+    killFeed.forEach((message, index) => {
+        const age = Date.now() - message.timestamp;
+        const fadeStart = KILL_FEED_DURATION - 1000;
+        
+        // Fade out old messages
+        let alpha = 1;
+        if (age > fadeStart) {
+            alpha = 1 - (age - fadeStart) / 1000;
+        }
+        
+        // Slide in animation for new messages
+        let offsetX = 0;
+        if (age < 200) {
+            offsetX = (200 - age) * 2;
+        }
+        
+        ctx.globalAlpha = alpha;
+        
+        // Draw background
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        ctx.fillRect(x - 250 + offsetX, y - 20, 250, 25);
+        
+        // Draw killer name
+        ctx.fillStyle = message.killerColor;
+        ctx.fillText(message.killerName, x - 150 + offsetX, y);
+        
+        // Draw weapon icon/text
+        ctx.fillStyle = '#FFFFFF';
+        const weaponText = message.weaponType === 'standard' ? '→' : 
+                          message.weaponType === 'hazard' ? '☠' : '✦';
+        ctx.fillText(weaponText, x - 100 + offsetX, y);
+        
+        // Draw victim name
+        ctx.fillStyle = message.victimColor;
+        ctx.fillText(message.victimName, x - 50 + offsetX, y);
+        
+        y += lineHeight;
+    });
+    
+    ctx.restore();
+}
+
 function draw() {
     // Apply camera transformation
     ctx.save();
     ctx.translate(camera.x, camera.y);
     ctx.scale(camera.scale, camera.scale);
     
-    // Draw battlefield terrain with varied tiles and features
-    drawBattlefieldTerrain();
+    // Simple RPG-style tile background
+    const tileSize = 40 * CONFIG.GLOBAL_SCALE;
+    
+    // Base ground color
+    ctx.fillStyle = '#8B7D6B'; // Neutral brown-gray
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Simple tile grid pattern
+    for (let x = 0; x < canvas.width; x += tileSize) {
+        for (let y = 0; y < canvas.height; y += tileSize) {
+            // Checkerboard pattern with subtle variation
+            const isEven = ((x / tileSize) + (y / tileSize)) % 2 === 0;
+            
+            if (isEven) {
+                ctx.fillStyle = '#948A7A'; // Slightly lighter tile
+            } else {
+                ctx.fillStyle = '#877B69'; // Slightly darker tile
+            }
+            
+            ctx.fillRect(x, y, tileSize - 1, tileSize - 1);
+        }
+    }
     
     walls.forEach(wall => wall.draw());
     gates.forEach(gate => gate.draw());
@@ -3528,6 +3955,9 @@ function draw() {
     
     // Restore camera transformation for UI elements
     ctx.restore();
+    
+    // Draw kill feed (UI element, not affected by camera)
+    drawKillFeed();
     
     // Draw grace period countdown
     if (graceTimer > 0) {
@@ -3688,6 +4118,16 @@ function loadCurrentSettings() {
             checkbox.checked = CONFIG.POWERUP_TYPES[type].enabled;
         }
     });
+    
+    // Load environmental hazard settings
+    if (CONFIG.ENVIRONMENTAL_HAZARDS) {
+        Object.keys(CONFIG.ENVIRONMENTAL_HAZARDS).forEach(type => {
+            const checkbox = document.getElementById(`hazard_${type}`);
+            if (checkbox) {
+                checkbox.checked = CONFIG.ENVIRONMENTAL_HAZARDS[type].enabled;
+            }
+        });
+    }
 }
 
 function applySettings() {
@@ -3751,6 +4191,16 @@ function applySettings() {
         }
     });
     
+    // Update environmental hazard settings
+    if (CONFIG.ENVIRONMENTAL_HAZARDS) {
+        Object.keys(CONFIG.ENVIRONMENTAL_HAZARDS).forEach(type => {
+            const checkbox = document.getElementById(`hazard_${type}`);
+            if (checkbox) {
+                CONFIG.ENVIRONMENTAL_HAZARDS[type].enabled = checkbox.checked;
+            }
+        });
+    }
+    
     hideSettings();
 }
 
@@ -3769,6 +4219,20 @@ function resetToDefaults() {
     PLAYER2_COLOR = '#ff9800';
     PLAYER1_SECONDARY_COLOR = '#2E7D32';
     PLAYER2_SECONDARY_COLOR = '#E65100';
+    
+    // Reset all power-ups to their default enabled state
+    Object.keys(CONFIG.POWERUP_TYPES).forEach(type => {
+        // Original 7 weapons are enabled by default
+        const defaultEnabled = ['scatter', 'laser', 'rocket', 'explosive', 'piercing', 'mine', 'drone'].includes(type);
+        CONFIG.POWERUP_TYPES[type].enabled = defaultEnabled;
+    });
+    
+    // Reset all environmental hazards to disabled
+    if (CONFIG.ENVIRONMENTAL_HAZARDS) {
+        Object.keys(CONFIG.ENVIRONMENTAL_HAZARDS).forEach(type => {
+            CONFIG.ENVIRONMENTAL_HAZARDS[type].enabled = false;
+        });
+    }
     
     // Reload the form with default values
     loadCurrentSettings();
@@ -3807,263 +4271,4 @@ function returnToMainMenu() {
     scores = {};
     points = {};
     gameWinner = null;
-}
-
-// Terrain system functions
-function generateTerrainTiles() {
-    terrainTiles = [];
-    terrainFeatures = [];
-    terrainCached = false; // Mark cache as invalid
-    const tileSize = 40 * CONFIG.GLOBAL_SCALE;
-    
-    // Define tile types with different probabilities
-    const tileTypes = [
-        { type: 'dirt', color: '#8B7D6B', weight: 30 },
-        { type: 'sand', color: '#C4B5A0', weight: 20 },
-        { type: 'mud', color: '#6B5D4F', weight: 15 },
-        { type: 'gravel', color: '#9E9E9E', weight: 15 },
-        { type: 'grass', color: '#7A8B5D', weight: 10 },
-        { type: 'scorched', color: '#4A3C28', weight: 10 }
-    ];
-    
-    // Generate base tiles
-    for (let x = 0; x < canvas.width; x += tileSize) {
-        for (let y = 0; y < canvas.height; y += tileSize) {
-            const random = Math.random() * 100;
-            let cumWeight = 0;
-            let selectedType = tileTypes[0];
-            
-            for (const type of tileTypes) {
-                cumWeight += type.weight;
-                if (random < cumWeight) {
-                    selectedType = type;
-                    break;
-                }
-            }
-            
-            terrainTiles.push({
-                x: x,
-                y: y,
-                size: tileSize,
-                type: selectedType.type,
-                baseColor: selectedType.color,
-                variation: Math.random() * 0.2 - 0.1 // Color variation
-            });
-        }
-    }
-    
-    // Generate terrain features
-    const featureCount = Math.floor(Math.random() * 10) + 15;
-    for (let i = 0; i < featureCount; i++) {
-        const featureType = Math.random();
-        const x = Math.random() * canvas.width;
-        const y = Math.random() * canvas.height;
-        
-        if (featureType < 0.3) {
-            // Crater
-            terrainFeatures.push({
-                type: 'crater',
-                x: x,
-                y: y,
-                radius: (Math.random() * 30 + 20) * CONFIG.GLOBAL_SCALE,
-                depth: Math.random() * 0.3 + 0.2
-            });
-        } else if (featureType < 0.5) {
-            // Tire tracks
-            terrainFeatures.push({
-                type: 'tracks',
-                x: x,
-                y: y,
-                angle: Math.random() * Math.PI * 2,
-                length: (Math.random() * 80 + 40) * CONFIG.GLOBAL_SCALE,
-                width: (Math.random() * 10 + 8) * CONFIG.GLOBAL_SCALE
-            });
-        } else if (featureType < 0.7) {
-            // Rock/debris
-            terrainFeatures.push({
-                type: 'debris',
-                x: x,
-                y: y,
-                size: (Math.random() * 15 + 5) * CONFIG.GLOBAL_SCALE,
-                angle: Math.random() * Math.PI * 2
-            });
-        } else {
-            // Vegetation patch
-            terrainFeatures.push({
-                type: 'vegetation',
-                x: x,
-                y: y,
-                radius: (Math.random() * 25 + 15) * CONFIG.GLOBAL_SCALE
-            });
-        }
-    }
-}
-
-function renderTerrainToCache() {
-    const tileSize = 40 * CONFIG.GLOBAL_SCALE;
-    
-    // Base ground color
-    terrainCtx.fillStyle = '#8B7D6B';
-    terrainCtx.fillRect(0, 0, terrainCanvas.width, terrainCanvas.height);
-    
-    // Draw tiles with variations
-    terrainTiles.forEach((tile) => {
-        // Apply color variation
-        const r = parseInt(tile.baseColor.substr(1, 2), 16);
-        const g = parseInt(tile.baseColor.substr(3, 2), 16);
-        const b = parseInt(tile.baseColor.substr(5, 2), 16);
-        
-        const variation = tile.variation;
-        const newR = Math.max(0, Math.min(255, r + r * variation));
-        const newG = Math.max(0, Math.min(255, g + g * variation));
-        const newB = Math.max(0, Math.min(255, b + b * variation));
-        
-        terrainCtx.fillStyle = `rgb(${Math.floor(newR)}, ${Math.floor(newG)}, ${Math.floor(newB)})`;
-        terrainCtx.fillRect(tile.x, tile.y, tile.size - 1, tile.size - 1);
-        
-        // Add texture patterns based on tile type
-        terrainCtx.save();
-        if (tile.type === 'gravel') {
-            // Draw small dots for gravel texture
-            terrainCtx.fillStyle = 'rgba(0, 0, 0, 0.1)';
-            for (let i = 0; i < 5; i++) {
-                const dx = tile.x + Math.random() * tile.size;
-                const dy = tile.y + Math.random() * tile.size;
-                terrainCtx.beginPath();
-                terrainCtx.arc(dx, dy, 1, 0, Math.PI * 2);
-                terrainCtx.fill();
-            }
-        } else if (tile.type === 'sand') {
-            // Draw subtle lines for sand texture
-            terrainCtx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
-            terrainCtx.lineWidth = 1;
-            terrainCtx.beginPath();
-            terrainCtx.moveTo(tile.x, tile.y + tile.size * 0.3);
-            terrainCtx.lineTo(tile.x + tile.size, tile.y + tile.size * 0.7);
-            terrainCtx.stroke();
-        } else if (tile.type === 'grass') {
-            // Draw small lines for grass texture
-            terrainCtx.strokeStyle = 'rgba(100, 140, 60, 0.3)';
-            terrainCtx.lineWidth = 1;
-            for (let i = 0; i < 3; i++) {
-                const gx = tile.x + Math.random() * tile.size;
-                const gy = tile.y + Math.random() * tile.size;
-                terrainCtx.beginPath();
-                terrainCtx.moveTo(gx, gy);
-                terrainCtx.lineTo(gx + 2, gy - 4);
-                terrainCtx.stroke();
-            }
-        }
-        terrainCtx.restore();
-    });
-    
-    // Draw terrain features
-    terrainFeatures.forEach(feature => {
-        terrainCtx.save();
-        
-        if (feature.type === 'crater') {
-            // Draw crater
-            const gradient = terrainCtx.createRadialGradient(
-                feature.x, feature.y, 0,
-                feature.x, feature.y, feature.radius
-            );
-            gradient.addColorStop(0, `rgba(40, 30, 20, ${feature.depth})`);
-            gradient.addColorStop(0.7, `rgba(50, 40, 30, ${feature.depth * 0.5})`);
-            gradient.addColorStop(1, 'rgba(60, 50, 40, 0)');
-            terrainCtx.fillStyle = gradient;
-            terrainCtx.beginPath();
-            terrainCtx.arc(feature.x, feature.y, feature.radius, 0, Math.PI * 2);
-            terrainCtx.fill();
-            
-            // Add rim highlight
-            terrainCtx.strokeStyle = 'rgba(80, 70, 60, 0.2)';
-            terrainCtx.lineWidth = 2;
-            terrainCtx.stroke();
-        } else if (feature.type === 'tracks') {
-            // Draw tire tracks
-            terrainCtx.translate(feature.x, feature.y);
-            terrainCtx.rotate(feature.angle);
-            terrainCtx.fillStyle = 'rgba(40, 35, 30, 0.15)';
-            
-            // Left track
-            terrainCtx.fillRect(-feature.width/2 - 2, -feature.length/2, 3, feature.length);
-            // Right track
-            terrainCtx.fillRect(feature.width/2 - 1, -feature.length/2, 3, feature.length);
-            
-            // Track pattern
-            terrainCtx.fillStyle = 'rgba(30, 25, 20, 0.1)';
-            for (let i = -feature.length/2; i < feature.length/2; i += 8) {
-                terrainCtx.fillRect(-feature.width/2 - 3, i, 5, 4);
-                terrainCtx.fillRect(feature.width/2 - 2, i, 5, 4);
-            }
-        } else if (feature.type === 'debris') {
-            // Draw small rocks/debris
-            terrainCtx.translate(feature.x, feature.y);
-            terrainCtx.rotate(feature.angle);
-            terrainCtx.fillStyle = 'rgba(60, 55, 50, 0.4)';
-            terrainCtx.beginPath();
-            terrainCtx.moveTo(-feature.size/2, 0);
-            terrainCtx.lineTo(0, -feature.size/2);
-            terrainCtx.lineTo(feature.size/2, 0);
-            terrainCtx.lineTo(0, feature.size/2);
-            terrainCtx.closePath();
-            terrainCtx.fill();
-            
-            // Add shadow
-            terrainCtx.fillStyle = 'rgba(0, 0, 0, 0.2)';
-            terrainCtx.beginPath();
-            terrainCtx.ellipse(2, 2, feature.size/2, feature.size/3, 0, 0, Math.PI * 2);
-            terrainCtx.fill();
-        } else if (feature.type === 'vegetation') {
-            // Draw vegetation patches
-            const gradient = terrainCtx.createRadialGradient(
-                feature.x, feature.y, 0,
-                feature.x, feature.y, feature.radius
-            );
-            gradient.addColorStop(0, 'rgba(100, 120, 70, 0.2)');
-            gradient.addColorStop(1, 'rgba(90, 110, 60, 0)');
-            terrainCtx.fillStyle = gradient;
-            terrainCtx.beginPath();
-            terrainCtx.arc(feature.x, feature.y, feature.radius, 0, Math.PI * 2);
-            terrainCtx.fill();
-            
-            // Add some grass blades
-            terrainCtx.strokeStyle = 'rgba(80, 100, 50, 0.3)';
-            terrainCtx.lineWidth = 1;
-            for (let i = 0; i < 8; i++) {
-                const angle = Math.random() * Math.PI * 2;
-                const dist = Math.random() * feature.radius;
-                const gx = feature.x + Math.cos(angle) * dist;
-                const gy = feature.y + Math.sin(angle) * dist;
-                terrainCtx.beginPath();
-                terrainCtx.moveTo(gx, gy);
-                terrainCtx.lineTo(gx + Math.random() * 4 - 2, gy - 5);
-                terrainCtx.stroke();
-            }
-        }
-        
-        terrainCtx.restore();
-    });
-}
-
-function drawBattlefieldTerrain() {
-    // Check if we need to create or update the cached terrain
-    if (!terrainCached || !terrainCanvas) {
-        // Create off-screen canvas for caching if needed
-        if (!terrainCanvas) {
-            terrainCanvas = document.createElement('canvas');
-            terrainCtx = terrainCanvas.getContext('2d');
-        }
-        
-        // Set canvas size
-        terrainCanvas.width = canvas.width;
-        terrainCanvas.height = canvas.height;
-        
-        // Render terrain to cache
-        renderTerrainToCache();
-        terrainCached = true;
-    }
-    
-    // Draw cached terrain to main canvas
-    ctx.drawImage(terrainCanvas, 0, 0);
 }

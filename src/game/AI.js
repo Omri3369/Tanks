@@ -61,7 +61,9 @@ class AIBehavior {
         }
 
         // Enhanced shooting logic
-        tank.aiShootTimer--;
+        if (tank.aiShootTimer > 0) {
+            tank.aiShootTimer--;
+        }
         if (bestTarget && tank.aiShootTimer <= 0) {
             this.smartShooting(tank, bestTarget);
         }
@@ -383,7 +385,11 @@ class AIBehavior {
         const distance = Math.sqrt(dx * dx + dy * dy);
         
         // Safety checks first - don't shoot if it's dangerous
-        if (!this.isSafeToShoot(tank, target)) return;
+        if (!this.isSafeToShoot(tank, target)) {
+            // Reset timer even if we can't shoot for safety
+            tank.aiShootTimer = 15 + Math.random() * 15;
+            return;
+        }
         
         // Predictive aiming for moving targets (with random error)
         const targetVelX = Math.cos(target.angle) * target.speed;
@@ -409,6 +415,9 @@ class AIBehavior {
             this.gameState.shootBullet(tank); // Use game state method
             // Longer intervals when low health (more cautious)
             tank.aiShootTimer = (30 + Math.random() * 30) * (2 - healthFactor);
+        } else {
+            // Reset timer if we can't shoot yet
+            tank.aiShootTimer = 10 + Math.random() * 20;
         }
     }
 

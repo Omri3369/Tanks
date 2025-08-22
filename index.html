@@ -443,7 +443,7 @@
                 
                 <div style="margin: 20px 0; color: #fff; font-size: 16px;">
                     <label style="margin-right: 10px;">🤖 AI Count:</label>
-                    <input type="number" id="mainMenuAiCount" value="3" min="1" max="7" style="width: 60px; padding: 8px; border-radius: 5px; border: 1px solid #666; background: #333; color: #fff; font-size: 14px;">
+                    <input type="number" id="mainMenuAiCount" value="3" min="1" max="20" style="width: 60px; padding: 8px; border-radius: 5px; border: 1px solid #666; background: #333; color: #fff; font-size: 14px;">
                 </div>
             </div>
         </div>
@@ -588,7 +588,7 @@
                 </div>
                 <div class="setting-item">
                     <label>AI Tank Count:</label>
-                    <input type="number" id="aiCount" step="1" min="1" max="7">
+                    <input type="number" id="aiCount" step="1" min="1" max="20">
                 </div>
                 <div class="setting-item">
                     <label>Collectible Count:</label>
@@ -741,6 +741,332 @@
                 <div class="setting-item">
                     <label>🤖 Combat Drone:</label>
                     <input type="checkbox" id="powerup_drone" checked>
+                </div>
+                <!-- New weapons - disabled by default -->
+                <div class="setting-item">
+                    <label>🎯 Homing Missile:</label>
+                    <input type="checkbox" id="powerup_homing">
+                </div>
+                <div class="setting-item">
+                    <label>🔥 Flamethrower:</label>
+                    <input type="checkbox" id="powerup_flamethrower">
+                </div>
+                <div class="setting-item">
+                    <label>❄️ Freeze Ray:</label>
+                    <input type="checkbox" id="powerup_freeze">
+                </div>
+                <div class="setting-item">
+                    <label>⚙️ Railgun:</label>
+                    <input type="checkbox" id="powerup_railgun">
+                </div>
+                <div class="setting-item">
+                    <label>⛓️ Chain Lightning:</label>
+                    <input type="checkbox" id="powerup_chain">
+                </div>
+                <div class="setting-item">
+                    <label>🪃 Boomerang:</label>
+                    <input type="checkbox" id="powerup_boomerang">
+                </div>
+                <div class="setting-item">
+                    <label>🌀 Gravity Vortex:</label>
+                    <input type="checkbox" id="powerup_vortex">
+                </div>
+                <div class="setting-item">
+                    <label>🌌 Teleport Shot:</label>
+                    <input type="checkbox" id="powerup_teleport">
+                </div>
+                <div class="setting-item">
+                    <label>🛡️ Shield Wall:</label>
+                    <input type="checkbox" id="powerup_shield">
+                </div>
+                <div class="setting-item">
+                    <label>⚾ Super Bouncer:</label>
+                    <input type="checkbox" id="powerup_bouncer">
+                </div>
+                <div class="setting-item">
+                    <label>⚡ EMP Blast:</label>
+                    <input type="checkbox" id="powerup_emp">
+                </div>
+                <div class="setting-item">
+                    <label>🧪 Acid Spray:</label>
+                    <input type="checkbox" id="powerup_acid">
+                </div>
+                <div class="setting-item">
+                    <label>🐝 Swarm Missiles:</label>
+                    <input type="checkbox" id="powerup_swarm">
+                </div>
+                <div class="setting-item">
+                    <label>👻 Phantom Shot:</label>
+                    <input type="checkbox" id="powerup_phantom">
+                </div>
+                <div class="setting-item">
+                    <label>🎱 Ricochet Master:</label>
+                    <input type="checkbox" id="powerup_ricochet">
+                </div>
+                <div class="setting-item">
+                    <label>🌪️ Tornado:</label>
+                    <input type="checkbox" id="powerup_tornado">
+                </div>
+                <div class="setting-item">
+                    <label>⚫ Black Hole:</label>
+                    <input type="checkbox" id="powerup_blackhole">
+                </div>
+                <div class="setting-item">
+                    <label>🪞 Mirror Shot:</label>
+                    <input type="checkbox" id="powerup_mirror">
+                </div>
+                <div class="setting-item">
+                    <label>💣 Cluster Bomb:</label>
+                    <input type="checkbox" id="powerup_cluster">
+                </div>
+                <div class="setting-item">
+                    <label>⚡ Lightning Strike:</label>
+                    <input type="checkbox" id="powerup_lightning">
+                </div>
+                <!-- Defensive power-ups -->
+                <div class="setting-item">
+                    <label>🛡️ Personal Shield:</label>
+                    <input type="checkbox" id="powerup_personalShield">
+                </div>
+                <div class="setting-item">
+                    <label>👤 Invisibility Cloak:</label>
+                    <input type="checkbox" id="powerup_invisibility">
+                </div>
+                <div class="setting-item">
+                    <label>💨 Turbo Boost:</label>
+                    <input type="checkbox" id="powerup_speedBoost">
+                </div>
+                <div class="setting-item">
+                    <label>⏰ Time Warp:</label>
+                    <input type="checkbox" id="powerup_timeWarp">
+                </div>
+                <div class="setting-item">
+                    <label>🎭 Decoy Tank:</label>
+                    <input type="checkbox" id="powerup_decoy">
+                </div>
+                <div class="setting-item">
+                    <label>🧲 Magnetic Field:</label>
+                    <input type="checkbox" id="powerup_magnetField">
+                </div>
+                <div class="setting-item">
+                    <label>💨 Smoke Screen:</label>
+                    <input type="checkbox" id="powerup_smokeScreen">
+                </div>
+                <div class="setting-item">
+                    <label>❤️ Repair Kit:</label>
+                    <input type="checkbox" id="powerup_healing">
+                </div>
+                <div class="setting-item">
+                    <label>🌀 Teleporter:</label>
+                    <input type="checkbox" id="powerup_teleporter">
+                </div>
+                <div class="setting-item">
+                    <label>⚡ Force Field:</label>
+                    <input type="checkbox" id="powerup_forceField">
+                </div>
+                <div class="setting-item">
+                    <label>🔄 Reflection Armor:</label>
+                    <input type="checkbox" id="powerup_reflection">
+                </div>
+                <div class="setting-item">
+                    <label>👻 Phase Shift:</label>
+                    <input type="checkbox" id="powerup_phaseShift">
+                </div>
+                <div class="setting-item">
+                    <label>⚡ Overcharge:</label>
+                    <input type="checkbox" id="powerup_overcharge">
+                </div>
+                <div class="setting-item">
+                    <label>🦇 Vampire Mode:</label>
+                    <input type="checkbox" id="powerup_vampire">
+                </div>
+                <div class="setting-item">
+                    <label>👥 Duplicate:</label>
+                    <input type="checkbox" id="powerup_duplicate">
+                </div>
+                <div class="setting-item">
+                    <label>💥 Ground Pound:</label>
+                    <input type="checkbox" id="powerup_groundPound">
+                </div>
+                <div class="setting-item">
+                    <label>🪝 Grapple Hook:</label>
+                    <input type="checkbox" id="powerup_grappleHook">
+                </div>
+                <div class="setting-item">
+                    <label>🔄 Confusion Ray:</label>
+                    <input type="checkbox" id="powerup_reverseControls">
+                </div>
+                <div class="setting-item">
+                    <label>🔬 Size Modifier:</label>
+                    <input type="checkbox" id="powerup_sizeChange">
+                </div>
+                <div class="setting-item">
+                    <label>🧱 Wall Builder:</label>
+                    <input type="checkbox" id="powerup_wallBuilder">
+                </div>
+                <div class="setting-item">
+                    <label>📡 Radar Pulse:</label>
+                    <input type="checkbox" id="powerup_radar">
+                </div>
+                <div class="setting-item">
+                    <label>🕸️ Trap Deployer:</label>
+                    <input type="checkbox" id="powerup_trap">
+                </div>
+                <div class="setting-item">
+                    <label>💣 Kamikaze Mode:</label>
+                    <input type="checkbox" id="powerup_kamikaze">
+                </div>
+                <div class="setting-item">
+                    <label>✨ Phoenix Rising:</label>
+                    <input type="checkbox" id="powerup_resurrect">
+                </div>
+                <div class="setting-item">
+                    <label>🧠 Mind Control:</label>
+                    <input type="checkbox" id="powerup_mindControl">
+                </div>
+                <div class="setting-item">
+                    <label>🌌 Portal Gun:</label>
+                    <input type="checkbox" id="powerup_portal">
+                </div>
+                <div class="setting-item">
+                    <label>🌍 Earthquake:</label>
+                    <input type="checkbox" id="powerup_earthquake">
+                </div>
+                <div class="setting-item">
+                    <label>🤖 Nanobots:</label>
+                    <input type="checkbox" id="powerup_nanobots">
+                </div>
+                <div class="setting-item">
+                    <label>📽️ Hologram:</label>
+                    <input type="checkbox" id="powerup_hologram">
+                </div>
+                <div class="setting-item">
+                    <label>🔋 Energy Drain:</label>
+                    <input type="checkbox" id="powerup_energyDrain">
+                </div>
+            </div>
+            
+            <div class="settings-section">
+                <h3>⚠️ Environmental Hazards</h3>
+                <div class="setting-item">
+                    <label>🌋 Lava Pools:</label>
+                    <input type="checkbox" id="hazard_lavaPool">
+                </div>
+                <div class="setting-item">
+                    <label>🏜️ Quicksand:</label>
+                    <input type="checkbox" id="hazard_quicksand">
+                </div>
+                <div class="setting-item">
+                    <label>⚡ Electric Fences:</label>
+                    <input type="checkbox" id="hazard_electricFence">
+                </div>
+                <div class="setting-item">
+                    <label>🌪️ Tornadoes:</label>
+                    <input type="checkbox" id="hazard_tornado">
+                </div>
+                <div class="setting-item">
+                    <label>☄️ Meteor Shower:</label>
+                    <input type="checkbox" id="hazard_meteor">
+                </div>
+                <div class="setting-item">
+                    <label>🌧️ Acid Rain:</label>
+                    <input type="checkbox" id="hazard_acidRain">
+                </div>
+                <div class="setting-item">
+                    <label>🌍 Earthquakes:</label>
+                    <input type="checkbox" id="hazard_earthquake">
+                </div>
+                <div class="setting-item">
+                    <label>⛈️ Lightning Storms:</label>
+                    <input type="checkbox" id="hazard_lightning">
+                </div>
+                <div class="setting-item">
+                    <label>❄️ Ice Patches:</label>
+                    <input type="checkbox" id="hazard_icePatches">
+                </div>
+                <div class="setting-item">
+                    <label>💣 Random Mines:</label>
+                    <input type="checkbox" id="hazard_minefield">
+                </div>
+                <div class="setting-item">
+                    <label>🗡️ Spike Traps:</label>
+                    <input type="checkbox" id="hazard_spikes">
+                </div>
+                <div class="setting-item">
+                    <label>🔨 Crushers:</label>
+                    <input type="checkbox" id="hazard_crusher">
+                </div>
+                <div class="setting-item">
+                    <label>⚫ Black Holes:</label>
+                    <input type="checkbox" id="hazard_blackHoles">
+                </div>
+                <div class="setting-item">
+                    <label>🔥 Fire Walls:</label>
+                    <input type="checkbox" id="hazard_fireWalls">
+                </div>
+                <div class="setting-item">
+                    <label>☠️ Poison Gas:</label>
+                    <input type="checkbox" id="hazard_poisonGas">
+                </div>
+                <div class="setting-item">
+                    <label>🌊 Flash Floods:</label>
+                    <input type="checkbox" id="hazard_floodWater">
+                </div>
+                <div class="setting-item">
+                    <label>🌬️ Sandstorms:</label>
+                    <input type="checkbox" id="hazard_sandstorm">
+                </div>
+                <div class="setting-item">
+                    <label>☀️ Solar Flares:</label>
+                    <input type="checkbox" id="hazard_solarFlare">
+                </div>
+                <div class="setting-item">
+                    <label>♨️ Geysers:</label>
+                    <input type="checkbox" id="hazard_geyser">
+                </div>
+                <div class="setting-item">
+                    <label>🕳️ Sinkholes:</label>
+                    <input type="checkbox" id="hazard_sinkhole">
+                </div>
+                <div class="setting-item">
+                    <label>🏔️ Avalanches:</label>
+                    <input type="checkbox" id="hazard_avalanche">
+                </div>
+                <div class="setting-item">
+                    <label>💨 Wind Storms:</label>
+                    <input type="checkbox" id="hazard_windStorm">
+                </div>
+                <div class="setting-item">
+                    <label>☢️ Radiation Zones:</label>
+                    <input type="checkbox" id="hazard_radioactive">
+                </div>
+                <div class="setting-item">
+                    <label>🐙 Tentacles:</label>
+                    <input type="checkbox" id="hazard_tentacles">
+                </div>
+                <div class="setting-item">
+                    <label>🔴 Laser Grid:</label>
+                    <input type="checkbox" id="hazard_lasergrid">
+                </div>
+                <div class="setting-item">
+                    <label>➡️ Conveyor Belts:</label>
+                    <input type="checkbox" id="hazard_conveyor">
+                </div>
+                <div class="setting-item">
+                    <label>🧲 Magnetic Anomalies:</label>
+                    <input type="checkbox" id="hazard_magneticField">
+                </div>
+                <div class="setting-item">
+                    <label>👁️ Void Zones:</label>
+                    <input type="checkbox" id="hazard_voidZone">
+                </div>
+                <div class="setting-item">
+                    <label>💜 Plasma Storms:</label>
+                    <input type="checkbox" id="hazard_plasmaStorm">
+                </div>
+                <div class="setting-item">
+                    <label>⏱️ Time Bubbles:</label>
+                    <input type="checkbox" id="hazard_timeBubble">
                 </div>
             </div>
             
