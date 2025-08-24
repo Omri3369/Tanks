@@ -18,19 +18,20 @@ let walls = [];
 let gates = [];
 let powerUps = [];
 let particles = [];
-let collectibles = [];
+// Collectibles removed - no longer needed
 let explosions = [];
 let mines = [];
 let drones = [];
 let targets = [];
 let scores = {};
-let points = {};
+let kills = {}; // Track kills for each player
+// let points = {}; // Removed points system
 let ringOfFire = null;
 let roundStartTime = 0;
 let roundResetting = false;
 let gameWinner = null;
 let graceTimer = 0;
-let collectibleSpawnTimer = 0;
+// Collectible spawn timer removed - no longer needed
 
 // Terrain system variables
 let terrainTiles = [];
@@ -39,7 +40,6 @@ let terrainCanvas = null;
 let terrainCtx = null;
 let terrainCached = false;
 let obstacleTiles = [];
-let bridgeTiles = []; // Separate array for bridges
 
 // Underground tunnel system
 let tunnelEntrances = [];
@@ -102,6 +102,9 @@ let TILE_SIZE = 64;
 
 // Initialize AI system
 const aiSystem = new AIBehavior();
+
+// Initialize Remote Input Handler
+const remoteInputHandler = new RemoteInputHandler();
 
 // Initialize Input system
 const inputHandler = new InputHandler();
@@ -594,7 +597,7 @@ class Tank {
             }
         }
         
-        // Check water obstacles (but not bridges)
+        // Check water obstacles
         for (let obstacle of obstacleTiles) {
             if (obstacle.type === 'water') {
                 const obstacleX = obstacle.x * TILE_SIZE;
@@ -605,7 +608,6 @@ class Tank {
                     return this.angle + (Math.random() > 0.5 ? Math.PI/3 : -Math.PI/3);
                 }
             }
-            // Bridges are walkable, so no avoidance needed
         }
         return 0; // No obstacle detected
     }
@@ -803,7 +805,7 @@ class Tank {
             }
         }
         
-        // Check water obstacles (but not bridges)
+        // Check water obstacles
         for (let obstacle of obstacleTiles) {
             if (obstacle.type === 'water') {
                 const obstacleX = obstacle.x * TILE_SIZE;
@@ -815,7 +817,6 @@ class Tank {
                     return true;
                 }
             }
-            // Bridges are walkable, so no collision check for them
         }
         
         // Check gate collisions
@@ -1380,8 +1381,23 @@ class Tank {
         }
     }
     
-    destroy() {
+    destroy(killer = null) {
         this.alive = false;
+        
+        // Track kills if there's a killer and it's not self
+        if (killer && killer !== this) {
+            if (!kills[`player${killer.playerNum}`]) {
+                kills[`player${killer.playerNum}`] = 0;
+            }
+            kills[`player${killer.playerNum}`]++;
+            
+            // Update UI
+            const killsElement = document.getElementById(`kills${killer.playerNum}`);
+            if (killsElement) {
+                killsElement.textContent = kills[`player${killer.playerNum}`];
+            }
+        }
+        
         // Create explosion effect
         explosions.push(new Explosion(this.x, this.y));
         
@@ -1485,12 +1501,14 @@ class Bullet {
                         }
                         return false; // Remove bullet after explosion
                     } else {
-                        // Normal bullets bounce but damage the wall
-                        if (!wallDestroyed) {
-                            this.bounceOffWall(wall);
-                        } else {
+                        // Normal bullets are absorbed by destructible walls
+                        // The wall already took damage from wall.takeDamage() above
+                        if (wallDestroyed) {
                             // Wall was destroyed, bullet continues
                             continue;
+                        } else {
+                            // Wall absorbs the bullet
+                            return false; // Remove bullet
                         }
                     }
                 } else {
@@ -1519,8 +1537,8 @@ class Bullet {
         
         // Check obstacle tile collisions
         for (let tile of obstacleTiles) {
-            // Bridges and water don't block bullets
-            if (tile.type === 'bridge' || tile.type === 'water') continue;
+            // Water doesn't block bullets
+            if (tile.type === 'water') continue;
             
             const tileLeft = tile.x * TILE_SIZE;
             const tileRight = tileLeft + TILE_SIZE;
@@ -2327,123 +2345,7 @@ class Gate {
     }
 }
 
-class Collectible {
-    constructor(x, y) {
-        this.x = x;
-        this.y = y;
-        this.collected = false;
-        this.respawnTimer = 0;
-        this.bobOffset = Math.random() * Math.PI * 2;
-    }
-    
-    update() {
-        if (this.collected) {
-            this.respawnTimer--;
-            if (this.respawnTimer <= 0) {
-                this.collected = false;
-                let validPosition = false;
-                while (!validPosition) {
-                    this.x = Math.random() * (canvas.width - 100) + 50;
-                    this.y = Math.random() * (canvas.height - 100) + 50;
-                    validPosition = !this.checkWallCollision();
-                }
-            }
-        }
-    }
-    
-    checkWallCollision() {
-        for (let wall of walls) {
-            if (this.x + 10 > wall.x && 
-                this.x - 10 < wall.x + wall.width &&
-                this.y + 10 > wall.y && 
-                this.y - 10 < wall.y + wall.height) {
-                return true;
-            }
-        }
-        return false;
-    }
-    
-    checkCollision(tank) {
-        if (this.collected || !tank.alive) return false;
-        const distance = Math.sqrt((this.x - tank.x) ** 2 + (this.y - tank.y) ** 2);
-        if (distance < TANK_SIZE + 10) {
-            points[`player${tank.playerNum}`]++;
-            const pointsElement = document.getElementById(`points${tank.playerNum}`);
-            if (pointsElement) {
-                pointsElement.textContent = points[`player${tank.playerNum}`];
-            }
-            this.collected = true;
-            this.respawnTimer = CONFIG.COLLECTIBLE_RESPAWN_TIME;
-            
-            // Create particle effect
-            for (let i = 0; i < 10; i++) {
-                particles.push(new Particle(this.x, this.y, '#00BFFF'));
-            }
-            return true;
-        }
-        return false;
-    }
-    
-    draw() {
-        if (this.collected) return;
-        
-        const bob = Math.sin(Date.now() / 300 + this.bobOffset) * 3;
-        
-        // Enhanced glow effect
-        ctx.shadowColor = '#00BFFF';
-        ctx.shadowBlur = 20 + Math.sin(Date.now() / 200) * 5;
-        
-        // Outer ring
-        ctx.strokeStyle = '#00BFFF';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(this.x, this.y + bob, 12, 0, Math.PI * 2);
-        ctx.stroke();
-        
-        // Inner circle with gradient
-        const gradient = ctx.createRadialGradient(this.x, this.y + bob, 0, this.x, this.y + bob, 10);
-        gradient.addColorStop(0, '#ffffff');
-        gradient.addColorStop(0.5, '#00BFFF');
-        gradient.addColorStop(1, '#0066CC');
-        ctx.fillStyle = gradient;
-        ctx.beginPath();
-        ctx.arc(this.x, this.y + bob, 10, 0, Math.PI * 2);
-        ctx.fill();
-        
-        // Center star
-        ctx.fillStyle = '#ffffff';
-        ctx.beginPath();
-        for (let i = 0; i < 5; i++) {
-            const angle = (Math.PI * 2 / 5) * i - Math.PI / 2;
-            const x = this.x + Math.cos(angle) * 4;
-            const y = this.y + bob + Math.sin(angle) * 4;
-            if (i === 0) ctx.moveTo(x, y);
-            else ctx.lineTo(x, y);
-        }
-        ctx.closePath();
-        ctx.fill();
-        
-        // Add sparkle effects
-        ctx.shadowBlur = 0;
-        ctx.fillStyle = '#FFFFFF';
-        const sparkleTime = Date.now() / 100;
-        for (let i = 0; i < 3; i++) {
-            const sparkleAngle = sparkleTime + (i * Math.PI * 2 / 3);
-            const sparkleRadius = 15 + Math.sin(sparkleTime + i) * 5;
-            const sparkleX = this.x + Math.cos(sparkleAngle) * sparkleRadius;
-            const sparkleY = this.y + bob + Math.sin(sparkleAngle) * sparkleRadius;
-            const sparkleSize = 2 + Math.sin(sparkleTime + i * 2) * 1;
-            
-            ctx.globalAlpha = 0.7 + Math.sin(sparkleTime + i) * 0.3;
-            ctx.beginPath();
-            ctx.arc(sparkleX, sparkleY, sparkleSize, 0, Math.PI * 2);
-            ctx.fill();
-        }
-        
-        ctx.globalAlpha = 1;
-        ctx.shadowBlur = 0;
-    }
-}
+// Collectible class removed - blue points system disabled
 
 class PowerUp {
     constructor(x, y) {
@@ -3582,7 +3484,7 @@ function createScoreBoard() {
             <div class="score-name" style="color: ${tankColor};">${tankName}</div>
             <div class="score-stats">
                 <div>Wins: <span id="score${tank.playerNum}">0</span></div>
-                <div>Points: <span id="points${tank.playerNum}">0</span></div>
+                <div>Kills: <span id="kills${tank.playerNum}">0</span></div>
                 <div><span id="powerup${tank.playerNum}">🔸</span> <span id="ammo${tank.playerNum}">${tank.specialAmmo}</span>/${tank.maxSpecialAmmo}</div>
             </div>
             <div class="reload-bar-container">
@@ -3593,7 +3495,8 @@ function createScoreBoard() {
         
         // Initialize scores
         scores[`player${tank.playerNum}`] = 0;
-        points[`player${tank.playerNum}`] = 0;
+        kills[`player${tank.playerNum}`] = 0;
+        // Points system removed
     });
 }
 
@@ -3682,37 +3585,12 @@ function resetCamera() {
     camera.zoomStartTime = 0;
 }
 
+// Function removed - blue point collectibles disabled
+/*
 function spawnRandomCollectible() {
-    let attempts = 0;
-    const maxAttempts = 50;
-    
-    while (attempts < maxAttempts) {
-        const x = Math.random() * (canvas.width - 100) + 50;
-        const y = Math.random() * (canvas.height - 100) + 50;
-        
-        const testCollectible = new Collectible(x, y);
-        if (!testCollectible.checkWallCollision()) {
-            // Make sure it's not too close to tanks
-            let tooCloseToTank = false;
-            for (const tank of tanks) {
-                if (tank.alive) {
-                    const distance = Math.sqrt((x - tank.x) ** 2 + (y - tank.y) ** 2);
-                    if (distance < 100) {
-                        tooCloseToTank = true;
-                        break;
-                    }
-                }
-            }
-            
-            if (!tooCloseToTank) {
-                return testCollectible;
-            }
-        }
-        attempts++;
-    }
-    
-    return null; // Failed to find valid position
+    // Function removed to disable blue point collectibles
 }
+*/
 
 // selectMapSize function moved to menu.js
 
@@ -3723,7 +3601,7 @@ function init() {
     bullets = [];
     particles = [];
     powerUps = [];
-    collectibles = [];
+    // collectibles = []; // Removed blue points system
     drones = [];
     targets = [];
     
@@ -3737,19 +3615,32 @@ function init() {
     aiSystem.initialize(CONFIG, gameState);
     inputHandler.initialize(CONFIG);
     
+    // Set the shared remote input handler
+    if (inputHandler.remoteHandler) {
+        // Replace with our global instance that can send color updates
+        inputHandler.remoteHandler = remoteInputHandler;
+    }
+    remoteInputHandler.connect();
+    
     // Generate terrain for battlefield
     generateTerrainTiles();
     
     
     // Generate random spawn position for player 1
     const player1Pos = generateSafeSpawnPosition();
-    tanks.push(new Tank(player1Pos.x, player1Pos.y, PLAYER1_COLOR, {
+    const player1Tank = new Tank(player1Pos.x, player1Pos.y, PLAYER1_COLOR, {
         up: 'ArrowUp',
         down: 'ArrowDown',
         left: 'ArrowLeft',
         right: 'ArrowRight',
         shoot: 'm'
-    }, 1, PLAYER1_SECONDARY_COLOR));
+    }, 1, PLAYER1_SECONDARY_COLOR);
+    tanks.push(player1Tank);
+    
+    // Send player 1 color to controller
+    if (remoteInputHandler) {
+        remoteInputHandler.sendPlayerColorUpdate(1, PLAYER1_COLOR);
+    }
     
     if (gameMode === 0) {
         // Training mode - only player 1, no AI or other players
@@ -3808,13 +3699,19 @@ function init() {
         }
     } else {
         const player2Pos = generateSafeSpawnPosition();
-        tanks.push(new Tank(player2Pos.x, player2Pos.y, PLAYER2_COLOR, {
+        const player2Tank = new Tank(player2Pos.x, player2Pos.y, PLAYER2_COLOR, {
             up: 'e',
             down: 'd',
             left: 's',
             right: 'f',
             shoot: 'q'
-        }, 2, PLAYER2_SECONDARY_COLOR));
+        }, 2, PLAYER2_SECONDARY_COLOR);
+        tanks.push(player2Tank);
+        
+        // Send player 2 color to controller
+        if (remoteInputHandler) {
+            remoteInputHandler.sendPlayerColorUpdate(2, PLAYER2_COLOR);
+        }
     }
     
     for (let i = 0; i < 2; i++) {
@@ -3822,18 +3719,7 @@ function init() {
         powerUps.push(new PowerUp(powerUpPos.x, powerUpPos.y));
     }
     
-    // Add blue collectible points
-    for (let i = 0; i < CONFIG.COLLECTIBLE_COUNT; i++) {
-        let validPosition = false;
-        let x, y;
-        while (!validPosition) {
-            x = Math.random() * (canvas.width - 100) + 50;
-            y = Math.random() * (canvas.height - 100) + 50;
-            const collectible = new Collectible(x, y);
-            validPosition = !collectible.checkWallCollision();
-        }
-        collectibles.push(new Collectible(x, y));
-    }
+    // Blue collectible points removed
     
     // Create scoreboard after tanks are initialized
     createScoreBoard();
@@ -3912,17 +3798,7 @@ function update() {
         
         // Random collectible spawning
         try {
-            if (CONFIG.COLLECTIBLE_RANDOM_SPAWN && collectibles.length < CONFIG.COLLECTIBLE_COUNT + 3) {
-                collectibleSpawnTimer++;
-                // Spawn a new collectible every 10-20 seconds randomly
-                if (collectibleSpawnTimer > 600 + Math.random() * 600) {
-                    const newCollectible = spawnRandomCollectible();
-                    if (newCollectible) {
-                        collectibles.push(newCollectible);
-                        collectibleSpawnTimer = 0;
-                    }
-                }
-            }
+            // Collectible spawning removed
         } catch (error) {
             console.error('[UPDATE ERROR] Collectible spawning failed:', error);
         }
@@ -3970,7 +3846,7 @@ function update() {
                     for (let tank of tanks) {
                         try {
                             if (bullet.checkTankCollision(tank)) {
-                                tank.destroy();
+                                tank.destroy(bullet.owner);
                                 return false;
                             }
                         } catch (error) {
@@ -4032,25 +3908,7 @@ function update() {
             console.error('[UPDATE ERROR] PowerUp system failed:', error);
         }
         
-        // Update collectibles
-        try {
-            collectibles.forEach(collectible => {
-                try {
-                    collectible.update();
-                    tanks.forEach(tank => {
-                        try {
-                            collectible.checkCollision(tank);
-                        } catch (error) {
-                            console.error('[UPDATE ERROR] Collectible collision check failed:', error);
-                        }
-                    });
-                } catch (error) {
-                    console.error('[UPDATE ERROR] Collectible update failed:', error);
-                }
-            });
-        } catch (error) {
-            console.error('[UPDATE ERROR] Collectible system failed:', error);
-        }
+        // Collectibles update removed
         
         // Update particles
         try {
@@ -4119,19 +3977,16 @@ function resetRound() {
     // Reset ring of fire
     ringOfFire = new RingOfFire();
     
-    // Reset power-ups and collectibles to new positions
+    // Reset power-ups to new positions
     powerUps = [];
-    collectibles = [];
+    // collectibles = []; // Removed blue points system
     
     for (let i = 0; i < 2; i++) {
         const powerUpPos = generateSafeItemPosition();
         powerUps.push(new PowerUp(powerUpPos.x, powerUpPos.y));
     }
     
-    for (let i = 0; i < 3; i++) {
-        const collectiblePos = generateSafeItemPosition();
-        collectibles.push(new Collectible(collectiblePos.x, collectiblePos.y));
-    }
+    // Blue collectibles spawning removed
     
     // Respawn all tanks at random positions
     tanks.forEach(tank => {
@@ -4178,7 +4033,7 @@ function draw() {
     
     // Note: Walls are now drawn as organic shapes in drawBattlefieldTerrain()
     gates.forEach(gate => gate.draw());
-    collectibles.forEach(collectible => collectible.draw());
+    // collectibles.forEach(collectible => collectible.draw()); // Removed blue points drawing
     powerUps.forEach(powerUp => powerUp.draw());
     particles.forEach(particle => particle.draw());
     bullets.forEach(bullet => bullet.draw());
@@ -4435,7 +4290,7 @@ function updateSettingsFromPopup(settings) {
     
     CONFIG.GRACE_PERIOD = settings.GRACE_PERIOD !== undefined ? settings.GRACE_PERIOD : CONFIG.GRACE_PERIOD;
     CONFIG.AI_TANK_COUNT = settings.AI_TANK_COUNT !== undefined ? settings.AI_TANK_COUNT : CONFIG.AI_TANK_COUNT;
-    CONFIG.COLLECTIBLE_COUNT = settings.COLLECTIBLE_COUNT !== undefined ? settings.COLLECTIBLE_COUNT : CONFIG.COLLECTIBLE_COUNT;
+    // CONFIG.COLLECTIBLE_COUNT removed - blue points system disabled
     
     CONFIG.RING_OF_FIRE_ENABLED = settings.RING_OF_FIRE_ENABLED !== undefined ? settings.RING_OF_FIRE_ENABLED : CONFIG.RING_OF_FIRE_ENABLED;
     CONFIG.RING_WARNING_TIME = (settings.RING_OF_FIRE_WARNING_TIME !== undefined ? settings.RING_OF_FIRE_WARNING_TIME : 30) * 1000;
@@ -4501,7 +4356,7 @@ function loadCurrentSettings() {
     
     document.getElementById('gracePeriod').value = CONFIG.GRACE_PERIOD;
     document.getElementById('aiCount').value = CONFIG.AI_TANK_COUNT;
-    document.getElementById('collectibleCount').value = CONFIG.COLLECTIBLE_COUNT;
+    // document.getElementById('collectibleCount').value = CONFIG.COLLECTIBLE_COUNT; // Removed
     
     document.getElementById('ringWarning').value = CONFIG.RING_WARNING_TIME / 1000;
     document.getElementById('ringSafeZone').value = CONFIG.RING_MIN_RADIUS_MULT * 100;
@@ -4562,7 +4417,7 @@ function applySettings() {
     // Update game mechanics
     CONFIG.GRACE_PERIOD = parseInt(document.getElementById('gracePeriod').value);
     CONFIG.AI_TANK_COUNT = parseInt(document.getElementById('aiCount').value);
-    CONFIG.COLLECTIBLE_COUNT = parseInt(document.getElementById('collectibleCount').value);
+    // CONFIG.COLLECTIBLE_COUNT = parseInt(document.getElementById('collectibleCount').value); // Removed
     
     // Update ring of fire
     CONFIG.RING_WARNING_TIME = parseInt(document.getElementById('ringWarning').value) * 1000;
@@ -4592,6 +4447,12 @@ function applySettings() {
     // Update player colors
     PLAYER1_COLOR = document.getElementById('player1Color').value;
     PLAYER2_COLOR = document.getElementById('player2Color').value;
+    
+    // Send updated colors to controllers
+    if (remoteInputHandler) {
+        remoteInputHandler.sendPlayerColorUpdate(1, PLAYER1_COLOR);
+        remoteInputHandler.sendPlayerColorUpdate(2, PLAYER2_COLOR);
+    }
     PLAYER1_SECONDARY_COLOR = document.getElementById('player1SecondaryColor').value;
     PLAYER2_SECONDARY_COLOR = document.getElementById('player2SecondaryColor').value;
     
@@ -4640,7 +4501,6 @@ function generateTerrainTiles() {
     terrainTiles = [];
     terrainFeatures = [];
     obstacleTiles = [];
-    bridgeTiles = [];
     walls = [];
     terrainCached = false;
     
@@ -4866,7 +4726,7 @@ function generateObstacles() {
     
     // Generate water bodies - balanced for gameplay
     const waterBodyCount = Math.floor(Math.random() * 2) + 2; // 2-3 water bodies
-    const waterBodies = []; // Track water body locations for bridge generation
+    const waterBodies = []; // Track water body locations
     
     for (let i = 0; i < waterBodyCount; i++) {
         // Random water body sizes - balanced to preserve play space
@@ -4897,7 +4757,7 @@ function generateObstacles() {
         const centerX = Math.floor(Math.random() * (gridWidth + waterSizeX)) - Math.floor(waterSizeX / 2);
         const centerY = Math.floor(Math.random() * (gridHeight + waterSizeY)) - Math.floor(waterSizeY / 2);
         
-        // Store the actual wrapped positions for bridge generation
+        // Store the actual wrapped positions
         const wrappedCenterX = ((centerX % gridWidth) + gridWidth) % gridWidth;
         const wrappedCenterY = ((centerY % gridHeight) + gridHeight) % gridHeight;
         waterBodies.push({ 
@@ -4941,87 +4801,6 @@ function generateObstacles() {
         }
     }
     
-    // Generate bridges across water bodies (with wrapping support)
-    bridgeTiles = []; // Reset bridge tiles
-    waterBodies.forEach(waterBody => {
-        // Determine if this water body should have a bridge
-        if (Math.random() < 0.8 && Math.min(waterBody.sizeX, waterBody.sizeY) >= 4) { // 80% chance for larger water bodies
-            // Randomly choose horizontal or vertical bridge
-            const isHorizontal = waterBody.sizeX > waterBody.sizeY;
-            
-            if (isHorizontal) {
-                // Create horizontal bridge through middle of water body
-                const bridgeY = waterBody.originalCenterY + Math.floor(waterBody.sizeY / 2);
-                // Extend bridge 2 tiles beyond water on each side for accessibility
-                const bridgeStartX = waterBody.originalCenterX - 2;
-                const bridgeLength = waterBody.sizeX + 4;
-                
-                for (let x = 0; x < bridgeLength; x++) {
-                    // Calculate wrapped position
-                    const tileX = ((bridgeStartX + x) % gridWidth + gridWidth) % gridWidth;
-                    const wrappedBridgeY = ((bridgeY % gridHeight) + gridHeight) % gridHeight;
-                    
-                    // Check if there's a wall at this position - skip if there is
-                    const wallExists = obstacleTiles.find(tile => 
-                        tile.x === tileX && tile.y === wrappedBridgeY && tile.type === 'wall'
-                    );
-                    
-                    if (!wallExists) {
-                        // Remove water tile where bridge will be
-                        const waterIndex = obstacleTiles.findIndex(tile => 
-                            tile.x === tileX && tile.y === wrappedBridgeY && tile.type === 'water'
-                        );
-                        if (waterIndex !== -1) {
-                            // Remove the water tile
-                            obstacleTiles.splice(waterIndex, 1);
-                        }
-                        
-                        // Add bridge tile to separate array (even over land for continuous bridge)
-                        bridgeTiles.push({
-                            x: tileX,
-                            y: wrappedBridgeY,
-                            type: 'bridge'
-                        });
-                    }
-                }
-            } else {
-                // Create vertical bridge through middle of water body
-                const bridgeX = waterBody.originalCenterX + Math.floor(waterBody.sizeX / 2);
-                // Extend bridge 2 tiles beyond water on each side for accessibility
-                const bridgeStartY = waterBody.originalCenterY - 2;
-                const bridgeLength = waterBody.sizeY + 4;
-                
-                for (let y = 0; y < bridgeLength; y++) {
-                    // Calculate wrapped position
-                    const wrappedBridgeX = ((bridgeX % gridWidth) + gridWidth) % gridWidth;
-                    const tileY = ((bridgeStartY + y) % gridHeight + gridHeight) % gridHeight;
-                    
-                    // Check if there's a wall at this position - skip if there is
-                    const wallExists = obstacleTiles.find(tile => 
-                        tile.x === wrappedBridgeX && tile.y === tileY && tile.type === 'wall'
-                    );
-                    
-                    if (!wallExists) {
-                        // Remove water tile where bridge will be
-                        const waterIndex = obstacleTiles.findIndex(tile => 
-                            tile.x === wrappedBridgeX && tile.y === tileY && tile.type === 'water'
-                        );
-                        if (waterIndex !== -1) {
-                            // Remove the water tile
-                            obstacleTiles.splice(waterIndex, 1);
-                        }
-                        
-                        // Add bridge tile to separate array (even over land for continuous bridge)
-                        bridgeTiles.push({
-                            x: wrappedBridgeX,
-                            y: tileY,
-                            type: 'bridge'
-                        });
-                    }
-                }
-            }
-        }
-    });
     
     // Generate underground tunnel entrances
     // generateTunnelSystem(); // DISABLED FOR NOW
@@ -5301,7 +5080,7 @@ function drawBattlefieldTerrain() {
         const wallTiles = obstacleTiles.filter(tile => tile.type === 'wall');
         const waterTiles = obstacleTiles.filter(tile => tile.type === 'water');
         
-        // Draw water first (beneath bridges)
+        // Draw water tiles
         if (waterTiles.length > 0) {
             drawOrganicObstacleShape(ctx, waterTiles, waterLoaded ? waterImage : null, '#4682B4', '#1565C0', TILE_SIZE);
         }
@@ -5338,112 +5117,6 @@ function drawBattlefieldTerrain() {
             if (wall instanceof DestructibleWall) {
                 wall.draw();
             }
-        });
-    }
-    
-    // Draw bridges on top of water (from separate array) with connected appearance
-    if (bridgeTiles.length > 0) {
-        // Group connected bridge tiles into islands
-        const bridgeIslands = groupTilesIntoIslands(bridgeTiles);
-        
-        bridgeIslands.forEach(island => {
-            // Calculate bridge bounds
-            const minX = Math.min(...island.map(t => t.x));
-            const maxX = Math.max(...island.map(t => t.x));
-            const minY = Math.min(...island.map(t => t.y));
-            const maxY = Math.max(...island.map(t => t.y));
-            
-            // Determine if horizontal or vertical bridge
-            const isHorizontal = (maxX - minX) > (maxY - minY);
-            
-            // Draw gradient shadow
-            ctx.save();
-            if (isHorizontal) {
-                const shadowGradient = ctx.createLinearGradient(
-                    minX * TILE_SIZE, 0, 
-                    (maxX + 1) * TILE_SIZE, 0
-                );
-                shadowGradient.addColorStop(0, 'rgba(0, 0, 0, 0.15)');
-                shadowGradient.addColorStop(0.2, 'rgba(0, 0, 0, 0.3)');
-                shadowGradient.addColorStop(0.5, 'rgba(0, 0, 0, 0.45)');
-                shadowGradient.addColorStop(0.8, 'rgba(0, 0, 0, 0.3)');
-                shadowGradient.addColorStop(1, 'rgba(0, 0, 0, 0.15)');
-                
-                ctx.fillStyle = shadowGradient;
-                ctx.fillRect(
-                    minX * TILE_SIZE + 4, 
-                    minY * TILE_SIZE + 6, 
-                    (maxX - minX + 1) * TILE_SIZE, 
-                    (maxY - minY + 1) * TILE_SIZE + 4
-                );
-            } else {
-                const shadowGradient = ctx.createLinearGradient(
-                    0, minY * TILE_SIZE, 
-                    0, (maxY + 1) * TILE_SIZE
-                );
-                shadowGradient.addColorStop(0, 'rgba(0, 0, 0, 0.15)');
-                shadowGradient.addColorStop(0.2, 'rgba(0, 0, 0, 0.3)');
-                shadowGradient.addColorStop(0.5, 'rgba(0, 0, 0, 0.45)');
-                shadowGradient.addColorStop(0.8, 'rgba(0, 0, 0, 0.3)');
-                shadowGradient.addColorStop(1, 'rgba(0, 0, 0, 0.15)');
-                
-                ctx.fillStyle = shadowGradient;
-                ctx.fillRect(
-                    minX * TILE_SIZE + 6, 
-                    minY * TILE_SIZE + 4, 
-                    (maxX - minX + 1) * TILE_SIZE + 4, 
-                    (maxY - minY + 1) * TILE_SIZE
-                );
-            }
-            ctx.restore();
-            
-            // Create organic path for connected bridge shape
-            const bridgePath = createOrganicPath(island, TILE_SIZE);
-            
-            // Fill bridge with wood texture
-            ctx.save();
-            ctx.fillStyle = '#8B6F47';
-            ctx.fill(bridgePath);
-            
-            // Add wood grain details
-            ctx.strokeStyle = '#7A5F37';
-            ctx.lineWidth = 1;
-            ctx.globalAlpha = 0.5;
-            
-            island.forEach(tile => {
-                const x = tile.x * TILE_SIZE;
-                const y = tile.y * TILE_SIZE;
-                
-                // Draw wood grain lines
-                for (let i = 0; i < 4; i++) {
-                    const offset = (i + 1) * (TILE_SIZE / 5);
-                    ctx.beginPath();
-                    if (isHorizontal) {
-                        ctx.moveTo(x, y + offset);
-                        ctx.lineTo(x + TILE_SIZE, y + offset);
-                    } else {
-                        ctx.moveTo(x + offset, y);
-                        ctx.lineTo(x + offset, y + TILE_SIZE);
-                    }
-                    ctx.stroke();
-                }
-            });
-            
-            ctx.restore();
-            
-            // Draw elevated border
-            ctx.strokeStyle = '#654321';
-            ctx.lineWidth = 3;
-            ctx.lineCap = 'round';
-            ctx.lineJoin = 'round';
-            ctx.stroke(bridgePath);
-            
-            // Add highlight on top edge for elevation effect
-            ctx.strokeStyle = '#9B7F57';
-            ctx.lineWidth = 1.5;
-            ctx.globalAlpha = 0.6;
-            ctx.stroke(bridgePath);
-            ctx.globalAlpha = 1;
         });
     }
     
@@ -5623,7 +5296,7 @@ function drawOrganicObstacleShape(ctx, tiles, image, fillColor, borderColor, til
         
         // Draw organic border
         ctx.strokeStyle = borderColor;
-        ctx.lineWidth = 3;
+        ctx.lineWidth = 6;
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
         ctx.stroke(path);

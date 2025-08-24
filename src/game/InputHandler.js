@@ -8,6 +8,7 @@ class InputHandler {
         this.keys = {};
         this.CONFIG = null; // Will be injected
         this.initialized = false;
+        this.remoteHandler = null;
     }
 
     /**
@@ -18,7 +19,19 @@ class InputHandler {
         this.CONFIG = config;
         if (!this.initialized) {
             this.setupEventListeners();
+            this.setupRemoteHandler();
             this.initialized = true;
+        }
+    }
+    
+    /**
+     * Set up remote input handler for WebSocket controls
+     */
+    setupRemoteHandler() {
+        // Remote handler will be set externally by game.js
+        // This allows for shared instance that can send color updates
+        if (typeof remoteInputHandler !== 'undefined') {
+            this.remoteHandler = remoteInputHandler;
         }
     }
 
@@ -61,7 +74,15 @@ class InputHandler {
      * @returns {boolean} - True if key is pressed
      */
     isKeyPressed(key) {
-        return !!this.keys[key];
+        // Check local keyboard input
+        if (this.keys[key]) return true;
+        
+        // Check remote controller input
+        if (this.remoteHandler && this.remoteHandler.isRemoteKeyPressed(key)) {
+            return true;
+        }
+        
+        return false;
     }
 
     /**

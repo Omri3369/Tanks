@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Tank Controller</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            -khtml-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+            touch-action: none;
+        }
+        
+        .controller-container {
+            width: 100%;
+            max-width: 600px;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+        }
+        
+        .status {
+            text-align: center;
+            color: white;
+            font-size: 18px;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .status.connected {
+            background: rgba(0, 255, 0, 0.3);
+        }
+        
+        .status.disconnected {
+            background: rgba(255, 0, 0, 0.3);
+        }
+        
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-grow: 1;
+            gap: 40px;
+        }
+        
+        .joystick-container {
+            position: relative;
+            width: 200px;
+            height: 200px;
+        }
+        
+        .joystick-base {
+            position: absolute;
+            width: 200px;
+            height: 200px;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, rgba(0,0,0,0.3) 100%);
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            box-shadow: inset 0 0 30px rgba(0,0,0,0.5), 0 0 20px rgba(0,0,0,0.3);
+        }
+        
+        .joystick-knob {
+            position: absolute;
+            width: 80px;
+            height: 80px;
+            background: radial-gradient(circle at 30% 30%, #ffffff, #cccccc, #999999);
+            border: 2px solid #666;
+            border-radius: 50%;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            cursor: grab;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.4), inset 0 -2px 5px rgba(0,0,0,0.2);
+            transition: none;
+            z-index: 10;
+        }
+        
+        .joystick-knob.active {
+            cursor: grabbing;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.4), inset 0 -1px 3px rgba(0,0,0,0.2);
+        }
+        
+        .joystick-center-dot {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 50%;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+        }
+        
+        .action-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            align-items: center;
+        }
+        
+        .shoot-button {
+            width: 120px;
+            height: 120px;
+            background: radial-gradient(circle at 30% 30%, #ff4444, #cc0000, #990000);
+            border: 3px solid #660000;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+            font-weight: bold;
+            color: white;
+            cursor: pointer;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4), inset 0 -3px 10px rgba(0,0,0,0.3);
+            transition: all 0.1s;
+        }
+        
+        .shoot-button:active,
+        .shoot-button.pressed {
+            transform: scale(0.95);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.4), inset 0 -1px 5px rgba(0,0,0,0.3);
+            background: radial-gradient(circle at 30% 30%, #ff6666, #ff0000, #cc0000);
+        }
+        
+        .direction-indicator {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        
+        .direction-arrow {
+            position: absolute;
+            color: rgba(255,255,255,0.1);
+            font-size: 24px;
+            font-weight: bold;
+        }
+        
+        .direction-arrow.up {
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        
+        .direction-arrow.down {
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        
+        .direction-arrow.left {
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+        
+        .direction-arrow.right {
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+        
+        @media (max-width: 600px) {
+            .joystick-container {
+                width: 150px;
+                height: 150px;
+            }
+            
+            .joystick-base {
+                width: 150px;
+                height: 150px;
+            }
+            
+            .joystick-knob {
+                width: 60px;
+                height: 60px;
+            }
+            
+            .shoot-button {
+                width: 100px;
+                height: 100px;
+                font-size: 20px;
+            }
+        }
+        
+        .instructions {
+            position: fixed;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: rgba(255,255,255,0.6);
+            font-size: 12px;
+            text-align: center;
+        }
+        
+        .mobile-instructions {
+            display: block;
+        }
+        
+        .pc-instructions {
+            display: none;
+        }
+        
+        @media (min-width: 768px) {
+            .mobile-instructions {
+                display: none;
+            }
+            
+            .pc-instructions {
+                display: block;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="controller-container">
+        <div class="status disconnected" id="status">
+            Connecting...
+        </div>
+        
+        <div class="controls">
+            <div class="joystick-container">
+                <div class="joystick-base">
+                    <div class="direction-indicator">
+                        <div class="direction-arrow up">↑</div>
+                        <div class="direction-arrow down">↓</div>
+                        <div class="direction-arrow left">←</div>
+                        <div class="direction-arrow right">→</div>
+                    </div>
+                    <div class="joystick-center-dot"></div>
+                </div>
+                <div class="joystick-knob" id="joystick"></div>
+            </div>
+            
+            <div class="action-buttons">
+                <button class="shoot-button" data-action="shoot">FIRE</button>
+            </div>
+        </div>
+        
+        <div class="instructions">
+            <span class="mobile-instructions">Drag joystick to move • Tap FIRE to shoot</span>
+            <span class="pc-instructions">Arrow keys/WASD to move • Space/Enter to shoot</span>
+        </div>
+    </div>
+    
+    <script src="controller.js"></script>
+</body>
+</html>
