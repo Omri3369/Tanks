@@ -10,11 +10,11 @@ let gameActive = false;
 
 // Controller settings
 let settings = {
-    sensitivity: 1.0,
-    deadZone: 0.15,
-    hapticEnabled: true,
+    sensitivity: 0.4,
+    deadZone: 0.25,
+    hapticEnabled: false, // Disable haptics to reduce processing
     autoFire: false,
-    sendRate: 16 // ms between input sends (60fps)
+    sendRate: 33 // ms between input sends (30fps instead of 60fps)
 };
 
 // Tank state tracking
@@ -53,8 +53,8 @@ let currentTouch = null;
 // Performance optimization
 let animationFrameId = null;
 let lastSendTime = 0;
-const SEND_RATE = 16; // ms between sends (60fps max)
-const THROTTLE_RATE = 50; // ms minimum between sends
+const SEND_RATE = 33; // ms between sends (30fps max)
+const THROTTLE_RATE = 100; // ms minimum between sends (increased throttling)
 
 // Auto-fire
 let autoFireInterval = null;
@@ -146,6 +146,10 @@ function handleServerMessage(data) {
             break;
         case 'JOIN_ERROR':
             showError(data.error);
+            // Redirect to main screen after showing error
+            setTimeout(() => {
+                window.location.href = 'http://localhost:8080/';
+            }, 2000);
             break;
         case 'ROOM_STATE':
             updateRoomState(data.room);
@@ -398,13 +402,14 @@ function sendInput(force = false) {
     }
 }
 
-// Optimized input loop using requestAnimationFrame
+// Optimized input loop using setTimeout for better performance
 function startInputLoop() {
     function loop() {
         if (gameActive) {
             sendInput();
         }
-        animationFrameId = requestAnimationFrame(loop);
+        // Use setTimeout instead of requestAnimationFrame for more control
+        animationFrameId = setTimeout(loop, SEND_RATE);
     }
     
     // Start the loop if not already running
@@ -416,7 +421,7 @@ function startInputLoop() {
 // Stop the input loop
 function stopInputLoop() {
     if (animationFrameId) {
-        cancelAnimationFrame(animationFrameId);
+        clearTimeout(animationFrameId);
         animationFrameId = null;
     }
 }

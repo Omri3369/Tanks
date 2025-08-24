@@ -12,8 +12,8 @@ const CONFIG = {
     
     // Tank Properties
     TANK_SIZE: Math.round(30 * SIZE_MODIFIER), // Base: 30
-    TANK_SPEED: 0, // Testing - set to 0 to verify CONFIG is being used
-    TANK_TURN_SPEED: 0.03, // Deliberate turning
+    TANK_SPEED: 1.5, // Reduced from default ~3 for more controlled movement
+    TANK_TURN_SPEED: 0.02, // Reduced from 0.03 for more deliberate turning
     TANK_MAX_SPECIAL_AMMO: 5,
     TANK_RELOAD_TIME: 45, // frames (0.75 seconds at 60fps) - strategic shooting
     
@@ -65,11 +65,11 @@ const CONFIG = {
     // Game Rules
     FRIENDLY_FIRE_ENABLED: false,
     
-    // Visual Effects
-    EXPLOSION_MAX_RADIUS: Math.round(50 * SIZE_MODIFIER), // Base: 50
-    EXPLOSION_LIFETIME: 30,
-    PARTICLE_LIFETIME: 30,
-    SMOKE_LIFETIME: 60,
+    // Visual Effects (reduced for better performance)
+    EXPLOSION_MAX_RADIUS: Math.round(30 * SIZE_MODIFIER), // Reduced from 50
+    EXPLOSION_LIFETIME: 20, // Reduced from 30
+    PARTICLE_LIFETIME: 20, // Reduced from 30
+    SMOKE_LIFETIME: 40, // Reduced from 60
     
     // Animation
     WHEEL_ROTATION_SPEED: 0.2,
@@ -81,11 +81,11 @@ const CONFIG = {
     SPAWN_MIN_DISTANCE: Math.round(200 * SIZE_MODIFIER), // Base: 200
     WALL_THICKNESS_MIN: Math.round(20 * SIZE_MODIFIER), // Base: 20
     WALL_THICKNESS_SCALE: Math.round(30 * SIZE_MODIFIER), // Base: 30
-    TREE_COUNT_MULTIPLIER: 15,
+    TREE_COUNT_MULTIPLIER: 8, // Reduced for better performance
     
-    // Game Counts
-    POWERUP_COUNT: 5,
-    AI_TANK_COUNT: 20,
+    // Game Counts (reduced for better performance)
+    POWERUP_COUNT: 3,
+    AI_TANK_COUNT: 8,
     
     // Training Mode Settings
     TRAINING_STATIONARY_TARGETS: 3,

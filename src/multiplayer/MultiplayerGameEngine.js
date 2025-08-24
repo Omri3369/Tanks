@@ -15,7 +15,7 @@ class MultiplayerGameEngine {
         this.isController = false;
         this.syncInterval = null;
         this.lastSyncTime = 0;
-        this.SYNC_RATE = 1000 / 20; // 20 FPS sync rate
+        this.SYNC_RATE = 1000 / 15; // 15 FPS sync rate (reduced from 20 for better performance)
         
         this.bindToExistingGame();
     }
