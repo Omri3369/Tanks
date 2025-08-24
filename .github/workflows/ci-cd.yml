@@ -1,0 +1,75 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ master, dev ]
+  pull_request:
+    branches: [ master, dev ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Check for security vulnerabilities
+      run: npm audit --audit-level=moderate
+      continue-on-error: true
+    
+    - name: Validate package.json
+      run: |
+        if [ ! -f "package.json" ]; then
+          echo "package.json not found!"
+          exit 1
+        fi
+        node -e "JSON.parse(require('fs').readFileSync('package.json'))"
+    
+    - name: Check server starts
+      run: |
+        timeout 10s node server.js &
+        SERVER_PID=$!
+        sleep 3
+        if ps -p $SERVER_PID > /dev/null; then
+          echo "Server started successfully"
+          kill $SERVER_PID
+        else
+          echo "Server failed to start"
+          exit 1
+        fi
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/master' && github.event_name == 'push'
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Deploy to Render
+      env:
+        RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+        RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
+      run: |
+        if [ -z "$RENDER_API_KEY" ] || [ -z "$RENDER_SERVICE_ID" ]; then
+          echo "Render secrets not configured. Skipping deployment."
+          echo "To enable auto-deploy, add RENDER_API_KEY and RENDER_SERVICE_ID to GitHub secrets"
+          exit 0
+        fi
+        
+        curl -X POST \
+          "https://api.render.com/v1/services/$RENDER_SERVICE_ID/deploys" \
+          -H "Authorization: Bearer $RENDER_API_KEY" \
+          -H "Content-Type: application/json" \
+          -d '{"clearCache": false}'
+        
+        echo "Deployment triggered on Render"
