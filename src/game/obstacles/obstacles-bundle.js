@@ -1,5 +1,18 @@
-// Obstacles Bundle - Wall and Gate classes
+// Obstacles Bundle - Combines all obstacle classes into a single file for backward compatibility
 
+// Include all obstacle class definitions
+${[
+    'Wall',
+    'DestructibleWall', 
+    'Gate'
+].map(className => {
+    // This file acts as a bundle that includes all obstacle types
+    return `// ${className} definitions imported from individual files would go here`;
+}).join('\n')}
+
+// For now, include all classes directly in the bundle for compatibility
+
+// Wall - Basic wall obstacle that blocks movement and bullets
 class Wall {
     constructor(x, y, width, height) {
         this.x = x;
@@ -30,6 +43,7 @@ class Wall {
     }
 }
 
+// DestructibleWall - Wall that can be damaged and destroyed
 class DestructibleWall extends Wall {
     constructor(x, y, width, height) {
         super(x, y, width, height);
@@ -208,6 +222,7 @@ class DestructibleWall extends Wall {
     }
 }
 
+// Gate - Dynamic obstacle that opens and closes periodically
 class Gate {
     constructor(x, y, width, height, isVertical = true) {
         this.x = x;

@@ -1,3 +1,59 @@
+# Hazard System Refactor Plan
+
+## Goal
+Refactor the hazard system to follow the same modular pattern as the weapons system, breaking down the large HazardSystem.js file into individual hazard class files and creating bundle files.
+
+## Current Structure Analysis
+Currently, all hazards are defined in a single file `/src/game/hazards/HazardSystem.js` (440+ lines) containing:
+- HazardSystem class (main system)
+- EnvironmentalHazard base class
+- Individual hazard classes: LavaPool, Quicksand, ElectricFence, Tornado, IcePatch
+- Several more hazards referenced but not implemented: MeteorShower, AcidRain, Earthquake, LightningStorm, Minefield, SpikeTrap, Crusher, BlackHole, FireWall, PoisonGas
+
+## Todo Items
+
+### Phase 1: Extract Individual Hazard Classes
+- [ ] Extract LavaPool to `src/game/hazards/LavaPool.js`
+- [ ] Extract Quicksand to `src/game/hazards/Quicksand.js` 
+- [ ] Extract ElectricFence to `src/game/hazards/ElectricFence.js`
+- [ ] Extract Tornado to `src/game/hazards/Tornado.js`
+- [ ] Extract IcePatch to `src/game/hazards/IcePatch.js`
+
+### Phase 2: Create Base Classes
+- [ ] Extract EnvironmentalHazard base class to `src/game/hazards/EnvironmentalHazard.js`
+- [ ] Keep HazardSystem class in main file but simplify it
+
+### Phase 3: Create Bundle Files
+- [ ] Create `src/game/hazards/hazards-all.js` containing all individual hazard classes
+- [ ] Create `src/game/hazards/hazards-bundle.js` for importing all hazards at once
+
+### Phase 4: Update Import System
+- [ ] Update HazardSystem.js to import from individual files
+- [ ] Ensure global exposure for backward compatibility
+- [ ] Test that all hazards work correctly after refactor
+
+## Target Directory Structure
+```
+src/game/hazards/
+├── EnvironmentalHazard.js     (base class)
+├── LavaPool.js
+├── Quicksand.js
+├── ElectricFence.js
+├── Tornado.js
+├── IcePatch.js
+├── hazards-all.js            (all classes in one file)
+├── hazards-bundle.js         (imports and exposes all)
+└── HazardSystem.js           (main system, simplified)
+```
+
+## Implementation Notes
+- Follow the same pattern as weapons with individual files and bundle approach
+- Maintain backward compatibility
+- Each hazard class should be self-contained with its own drawing and effect logic
+- Keep the factory pattern in HazardSystem for creating hazards
+
+---
+
 # WebSocket Controller Optimization Plan
 
 ## Performance Issues Identified
@@ -36,10 +92,11 @@
 - ✅ Maintained backward compatibility using bundle approach with global exposure
 
 **Current Status:** 
-- Successfully extracted ~900+ lines of code from game.js (reduced from ~5400 to ~4935 lines)
+- Successfully extracted ~1100+ lines of code from game.js (reduced from ~5400 to ~4718 lines)
 - Game remains fully functional with new modular structure
 - Using compatibility bundles to allow gradual migration
-- Extracted: Particle, SmokeParticle, Explosion, RingOfFire, Wall, DestructibleWall, Gate, Mine, Target, Drone
+- Extracted: Particle, SmokeParticle, Explosion, RingOfFire, Wall, DestructibleWall, Gate, Mine, Target, Drone, PowerUp
+- Created Camera system module with screen shake and zoom functionality
 
 ## Current Structure Analysis
 The game.js file is approximately 5400+ lines and contains all game logic in a single file. This needs to be split into logical modules for better maintainability.
@@ -51,7 +108,7 @@ The game.js file is approximately 5400+ lines and contains all game logic in a s
 - [ ] Bullet class (lines 1413-1931) - Projectile system
 - [x] Wall & DestructibleWall classes (lines 1932-2139) - Obstacle system ✅ Moved to src/game/obstacles/obstacles-bundle.js
 - [x] Gate class (lines 2140-2346) - Gate mechanics ✅ Moved to src/game/obstacles/obstacles-bundle.js
-- [ ] PowerUp class (lines 2347-2565) - Power-up system
+- [x] PowerUp class (lines 2347-2565) - Power-up system ✅ Moved to src/game/entities/entities-bundle.js
 - [x] Particle & SmokeParticle classes (lines 2566-2634) - Visual effects ✅ Moved to src/game/effects/effects-bundle.js
 - [x] Explosion class (lines 2635-2713) - Explosion effects ✅ Moved to src/game/effects/effects-bundle.js
 - [x] Mine class (lines 2714-2816) - Mine mechanics ✅ Moved to src/game/entities/entities-bundle.js
@@ -61,7 +118,7 @@ The game.js file is approximately 5400+ lines and contains all game logic in a s
 
 ### Game Systems
 - [ ] Terrain system (lines 4471-5393) - Terrain generation and rendering
-- [ ] Camera system (lines 79-91, 3546-3586) - Camera and zoom effects
+- [x] Camera system (lines 79-91, 3546-3586) - Camera and zoom effects ✅ Created src/game/systems/Camera.js
 - [ ] Input handling (already separate in InputHandler.js)
 - [ ] AI system (already separate in AIBehavior.js)
 - [ ] Tunnel/teleport system (lines 45-47, 4781-4863)

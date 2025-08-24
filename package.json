@@ -4,14 +4,17 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "NODE_ENV=production node server.js",
-    "dev": "node server.js",
-    "server": "node server.js",
-    "server:network": "node server.js",
+    "start": "NODE_ENV=production node server-rooms.js",
+    "dev": "node server-rooms.js",
+    "server": "node server-rooms.js",
+    "server:rooms": "node server-rooms.js",
+    "server:legacy": "node server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "private": true,
   "dependencies": {
+    "qrcode": "^1.5.4",
+    "uuid": "^11.1.0",
     "ws": "^8.18.3"
   }
 }
