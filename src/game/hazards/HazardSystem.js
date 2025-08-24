@@ -432,8 +432,137 @@ class IcePatch extends EnvironmentalHazard {
     }
 }
 
+// FireWall - Moving wall of fire that damages tanks
+class FireWall extends EnvironmentalHazard {
+    constructor(x, y) {
+        super(x, y);
+        this.width = 100;
+        this.height = 20;
+        this.damageRate = 2;
+        this.moveSpeed = 1;
+        this.moveAngle = Math.random() * Math.PI * 2;
+        this.fireParticles = [];
+        this.animationFrame = 0;
+        
+        // Initialize fire particles
+        for (let i = 0; i < 15; i++) {
+            this.fireParticles.push({
+                x: Math.random() * this.width,
+                y: Math.random() * this.height,
+                life: Math.random() * 30 + 30,
+                maxLife: 60,
+                size: Math.random() * 8 + 4
+            });
+        }
+    }
+    
+    update(deltaTime, gameState) {
+        super.update(deltaTime, gameState);
+        
+        // Move the fire wall
+        this.x += Math.cos(this.moveAngle) * this.moveSpeed;
+        this.y += Math.sin(this.moveAngle) * this.moveSpeed;
+        
+        // Bounce off walls
+        if (this.x < 0 || this.x > gameState.canvas.width - this.width) {
+            this.moveAngle = Math.PI - this.moveAngle;
+        }
+        if (this.y < 0 || this.y > gameState.canvas.height - this.height) {
+            this.moveAngle = -this.moveAngle;
+        }
+        
+        // Keep within bounds
+        this.x = Math.max(0, Math.min(gameState.canvas.width - this.width, this.x));
+        this.y = Math.max(0, Math.min(gameState.canvas.height - this.height, this.y));
+        
+        // Update fire particles
+        this.animationFrame++;
+        this.fireParticles.forEach(particle => {
+            particle.life--;
+            if (particle.life <= 0) {
+                particle.x = Math.random() * this.width;
+                particle.y = Math.random() * this.height;
+                particle.life = particle.maxLife;
+            }
+        });
+    }
+    
+    isAffecting(tank) {
+        // Rectangle collision with tank
+        const tankX = tank.x;
+        const tankY = tank.y;
+        const tankRadius = 15; // Approximate tank radius
+        
+        return tankX + tankRadius > this.x && 
+               tankX - tankRadius < this.x + this.width &&
+               tankY + tankRadius > this.y && 
+               tankY - tankRadius < this.y + this.height;
+    }
+    
+    affectTank(tank) {
+        // Deal fire damage
+        if (typeof tank.takeDamage === 'function') {
+            tank.takeDamage(this.damageRate);
+        } else {
+            tank.health -= this.damageRate;
+            if (tank.health <= 0) {
+                tank.destroy();
+            }
+        }
+        
+        // Create fire damage particles
+        for (let i = 0; i < 3; i++) {
+            particles.push(new Particle(
+                tank.x + (Math.random() - 0.5) * 20,
+                tank.y + (Math.random() - 0.5) * 20,
+                '#FF4500',
+                20 + Math.random() * 10
+            ));
+        }
+    }
+    
+    draw(ctx) {
+        ctx.save();
+        
+        // Draw fire wall base
+        const gradient = ctx.createLinearGradient(this.x, this.y, this.x, this.y + this.height);
+        gradient.addColorStop(0, 'rgba(255, 69, 0, 0.8)');
+        gradient.addColorStop(0.5, 'rgba(255, 140, 0, 0.9)');
+        gradient.addColorStop(1, 'rgba(255, 0, 0, 0.7)');
+        
+        ctx.fillStyle = gradient;
+        ctx.fillRect(this.x, this.y, this.width, this.height);
+        
+        // Draw animated fire particles
+        this.fireParticles.forEach(particle => {
+            const alpha = particle.life / particle.maxLife;
+            const x = this.x + particle.x + Math.sin(this.animationFrame * 0.1 + particle.x) * 3;
+            const y = this.y + particle.y - (particle.maxLife - particle.life) * 0.2;
+            
+            ctx.globalAlpha = alpha * 0.8;
+            ctx.fillStyle = particle.life > 30 ? '#FFFF00' : (particle.life > 15 ? '#FF8C00' : '#FF0000');
+            
+            ctx.beginPath();
+            ctx.arc(x, y, particle.size * alpha, 0, Math.PI * 2);
+            ctx.fill();
+        });
+        
+        // Draw warning indicator when moving
+        if (this.moveSpeed > 0) {
+            ctx.globalAlpha = 0.5;
+            ctx.strokeStyle = '#FF0000';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]);
+            ctx.strokeRect(this.x - 5, this.y - 5, this.width + 10, this.height + 10);
+            ctx.setLineDash([]);
+        }
+        
+        ctx.restore();
+    }
+}
+
 // More hazard classes would go here...
-// (SpikeTrap, Crusher, BlackHole, FireWall, PoisonGas, etc.)
+// (SpikeTrap, Crusher, BlackHole, PoisonGas, etc.)
 
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = HazardSystem;

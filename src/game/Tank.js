@@ -225,6 +225,22 @@ class Tank {
     }
     
     
+    takeDamage(amount) {
+        if (this.shield > 0) {
+            this.shield -= amount;
+            if (this.shield < 0) {
+                this.health += this.shield;
+                this.shield = 0;
+            }
+        } else {
+            this.health -= amount;
+        }
+        
+        if (this.health <= 0) {
+            this.destroy();
+        }
+    }
+    
     draw() {
         this.renderer.draw();
     }

@@ -103,6 +103,11 @@ class Explosion {
     
     draw() {
         // Use global ctx and canvas for backward compatibility
+        if (typeof ctx === 'undefined' || typeof canvas === 'undefined') {
+            console.warn('Explosion draw: ctx or canvas not available');
+            return;
+        }
+        
         ctx.save();
         
         // Draw shockwave
@@ -239,10 +244,16 @@ class RingOfFire {
                             for (let i = 0; i < 5; i++) {
                                 particles.push(new Particle(tank.x, tank.y, '#FF4500'));
                             }
-                            // Give the tank a chance to escape before destroying
-                            if (distance > this.radius + 10) {
-                                tank.destroy();
-                                // Don't trigger round end here, let the normal game flow handle it
+                            
+                            // Deal continuous fire damage
+                            if (typeof tank.takeDamage === 'function') {
+                                tank.takeDamage(1); // Deal 1 damage per frame while in fire
+                            } else {
+                                // Fallback for older tank implementations
+                                tank.health -= 1;
+                                if (tank.health <= 0) {
+                                    tank.destroy();
+                                }
                             }
                         }
                     }
