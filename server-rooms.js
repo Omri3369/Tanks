@@ -446,7 +446,7 @@ function broadcastToPresenter(roomCode, message) {
 }
 
 // Start server
-server.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', () => {
     console.log(`HTTP Server running on port ${PORT}`);
     console.log(`Visit http://localhost:${PORT} to access the lobby`);
 });
