@@ -55,6 +55,20 @@ class RoomManager {
             return { success: false, error: 'Room not found' };
         }
         
+        // Check if player is already in room first (before checking game state)
+        console.log(`Looking for existing player ${playerId} in room ${roomCode}`);
+        console.log('Room players:', room.players.map(p => ({ id: p.id, name: p.name, connected: p.connected })));
+        
+        const existingPlayer = room.players.find(p => p.id === playerId);
+        if (existingPlayer) {
+            console.log(`Found existing player ${playerId}, reconnecting`);
+            existingPlayer.connected = true;
+            this.updateActivity(roomCode);
+            return { success: true, room, player: existingPlayer };
+        }
+        
+        console.log(`Player ${playerId} not found in room, checking if new join is allowed`);
+        
         if (room.state === 'IN_GAME') {
             return { success: false, error: 'Game already in progress' };
         }
@@ -63,13 +77,6 @@ class RoomManager {
             return { success: false, error: 'Room is full' };
         }
         
-        // Check if player is already in room
-        const existingPlayer = room.players.find(p => p.id === playerId);
-        if (existingPlayer) {
-            existingPlayer.connected = true;
-            this.updateActivity(roomCode);
-            return { success: true, room, player: existingPlayer };
-        }
         
         // Assign player color based on join order
         const playerColors = [
@@ -168,12 +175,17 @@ class RoomManager {
         return null;
     }
     
-    startGame(roomCode) {
+    startGame(roomCode, forceWithAI = false) {
         const room = this.rooms.get(roomCode);
         if (!room) return false;
         
+        // Allow single player + AI if forceWithAI is true and aiCount is set
         if (room.players.length < 1) {
             return { success: false, error: 'Not enough players' };
+        }
+        
+        if (room.players.length === 1 && !forceWithAI && !room.gameSettings.aiCount) {
+            return { success: false, error: 'Need more players or AI opponents' };
         }
         
         room.state = 'IN_GAME';

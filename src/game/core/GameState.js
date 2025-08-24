@@ -9,17 +9,17 @@ class GameState {
         this.mapSize = 'medium';
         this.mapSizes = MAP_SIZES;
         
-        // Game entities
-        this.tanks = [];
-        this.bullets = [];
-        this.walls = [];
-        this.gates = [];
-        this.powerUps = [];
-        this.particles = [];
-        this.explosions = [];
-        this.mines = [];
-        this.drones = [];
-        this.targets = [];
+        // Game entities - use private properties to avoid getter conflicts
+        this._tanks = [];
+        this._bullets = [];
+        this._walls = [];
+        this._gates = [];
+        this._powerUps = [];
+        this._particles = [];
+        this._explosions = [];
+        this._mines = [];
+        this._drones = [];
+        this._targets = [];
         
         // Game state
         this.scores = {};
@@ -67,11 +67,27 @@ class GameState {
         };
     }
     
-    // Get methods for AI system compatibility
-    get tanks() { return this.tanks; }
-    get walls() { return this.walls; }
-    get powerUps() { return this.powerUps; }
-    get bullets() { return this.bullets; }
+    // Get and set methods for AI system compatibility
+    get tanks() { return this._tanks; }
+    set tanks(value) { this._tanks = value; }
+    get walls() { return this._walls; }
+    set walls(value) { this._walls = value; }
+    get powerUps() { return this._powerUps; }
+    set powerUps(value) { this._powerUps = value; }
+    get bullets() { return this._bullets; }
+    set bullets(value) { this._bullets = value; }
+    get particles() { return this._particles; }
+    set particles(value) { this._particles = value; }
+    get explosions() { return this._explosions; }
+    set explosions(value) { this._explosions = value; }
+    get mines() { return this._mines; }
+    set mines(value) { this._mines = value; }
+    get drones() { return this._drones; }
+    set drones(value) { this._drones = value; }
+    get targets() { return this._targets; }
+    set targets(value) { this._targets = value; }
+    get gates() { return this._gates; }
+    set gates(value) { this._gates = value; }
     
     shootBullet(tank) {
         tank.shoot();
@@ -79,19 +95,19 @@ class GameState {
     
     // State management methods
     addTank(tank) {
-        this.tanks.push(tank);
+        this._tanks.push(tank);
     }
     
     addBullet(bullet) {
-        this.bullets.push(bullet);
+        this._bullets.push(bullet);
     }
     
     addWall(wall) {
-        this.walls.push(wall);
+        this._walls.push(wall);
     }
     
     addPowerUp(powerUp) {
-        this.powerUps.push(powerUp);
+        this._powerUps.push(powerUp);
     }
     
     addParticle(particle) {
@@ -115,16 +131,16 @@ class GameState {
     }
     
     removeTank(tank) {
-        const index = this.tanks.indexOf(tank);
+        const index = this._tanks.indexOf(tank);
         if (index > -1) {
-            this.tanks.splice(index, 1);
+            this._tanks.splice(index, 1);
         }
     }
     
     removeBullet(bullet) {
-        const index = this.bullets.indexOf(bullet);
+        const index = this._bullets.indexOf(bullet);
         if (index > -1) {
-            this.bullets.splice(index, 1);
+            this._bullets.splice(index, 1);
         }
     }
     
@@ -165,15 +181,15 @@ class GameState {
     
     // Utility methods
     getAliveTanks() {
-        return this.tanks.filter(tank => tank.alive);
+        return this._tanks.filter(tank => tank.alive);
     }
     
     getPlayerTanks() {
-        return this.tanks.filter(tank => !tank.isAI);
+        return this._tanks.filter(tank => !tank.isAI);
     }
     
     getAITanks() {
-        return this.tanks.filter(tank => tank.isAI);
+        return this._tanks.filter(tank => tank.isAI);
     }
     
     isGameOver() {
@@ -187,12 +203,12 @@ class GameState {
     }
     
     clearEntities() {
-        this.bullets = [];
+        this._bullets = [];
         this.particles = [];
         this.explosions = [];
         this.mines = [];
         this.drones = [];
-        this.powerUps = [];
+        this._powerUps = [];
         this.teleportEffects = [];
     }
 }

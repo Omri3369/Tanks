@@ -1,24 +1,31 @@
 // Game Configuration
+
+// Master Size Modifier - Change this ONE value to scale EVERYTHING proportionally
+const SIZE_MODIFIER = 1.0; // 0.5 = half size, 1.0 = normal, 2.0 = double size
+
 const CONFIG = {
+    // Store SIZE_MODIFIER in config for easy access
+    SIZE_MODIFIER: SIZE_MODIFIER,
+    
     // Global Scale Settings
-    GLOBAL_SCALE: 0.8, // Scale everything down (0.5 = half size, 1.0 = normal, 2.0 = double)
+    GLOBAL_SCALE: 0.8, // Original scaling value
     
     // Tank Properties
-    TANK_SIZE: 30,
-    TANK_SPEED: 1.5,
-    TANK_TURN_SPEED: 0.035,
+    TANK_SIZE: Math.round(30 * SIZE_MODIFIER), // Base: 30
+    TANK_SPEED: 0, // Testing - set to 0 to verify CONFIG is being used
+    TANK_TURN_SPEED: 0.03, // Deliberate turning
     TANK_MAX_SPECIAL_AMMO: 5,
-    TANK_RELOAD_TIME: 20, // frames (0.33 seconds at 60fps) - faster shooting
+    TANK_RELOAD_TIME: 45, // frames (0.75 seconds at 60fps) - strategic shooting
     
     // Bullet Properties
-    BULLET_SPEED: 5, // Moderate speed increase from original
-    BULLET_SIZE: 4,
-    BULLET_LIFETIME: 300, // frames
+    BULLET_SPEED: 3.5, // Slower bullets for dodging opportunity
+    BULLET_SIZE: Math.round(4 * SIZE_MODIFIER), // Base: 4
+    BULLET_LIFETIME: 400, // frames - longer range for strategic positioning
     
     // Power-up Properties
-    POWERUP_SIZE: 20,
-    POWERUP_RESPAWN_TIME: 300, // frames (5 seconds)
-    POWERUP_DURATION: 600, // frames (10 seconds)
+    POWERUP_SIZE: Math.round(20 * SIZE_MODIFIER), // Base: 20
+    POWERUP_RESPAWN_TIME: 480, // frames (8 seconds) - more strategic powerup control
+    POWERUP_DURATION: 480, // frames (8 seconds) - balanced duration
     
     // Bullet Speed Multipliers for Power-ups
     LASER_SPEED_MULT: 1.5,
@@ -43,10 +50,10 @@ const CONFIG = {
     
     // Game Mechanics
     GRACE_PERIOD: 180, // frames (3 seconds)
-    AI_SHOOT_COOLDOWN_MIN: 60,
-    AI_SHOOT_COOLDOWN_MAX: 100,
-    AI_MIN_SHOOT_DISTANCE: 80,
-    AI_TURN_THRESHOLD: 0.05,
+    AI_SHOOT_COOLDOWN_MIN: 90, // Slower AI shooting for strategic gameplay
+    AI_SHOOT_COOLDOWN_MAX: 150, // More time between AI shots
+    AI_MIN_SHOOT_DISTANCE: Math.round(100 * SIZE_MODIFIER), // AI shoots from further away
+    AI_TURN_THRESHOLD: 0.03, // More precise AI aiming
     
     // Ring of Fire
     RING_OF_FIRE_ENABLED: true,
@@ -59,7 +66,7 @@ const CONFIG = {
     FRIENDLY_FIRE_ENABLED: false,
     
     // Visual Effects
-    EXPLOSION_MAX_RADIUS: 50,
+    EXPLOSION_MAX_RADIUS: Math.round(50 * SIZE_MODIFIER), // Base: 50
     EXPLOSION_LIFETIME: 30,
     PARTICLE_LIFETIME: 30,
     SMOKE_LIFETIME: 60,
@@ -71,9 +78,9 @@ const CONFIG = {
     ENGINE_BOB_AMPLITUDE: 0.5,
     
     // Map Generation
-    SPAWN_MIN_DISTANCE: 200,
-    WALL_THICKNESS_MIN: 20,
-    WALL_THICKNESS_SCALE: 30,
+    SPAWN_MIN_DISTANCE: Math.round(200 * SIZE_MODIFIER), // Base: 200
+    WALL_THICKNESS_MIN: Math.round(20 * SIZE_MODIFIER), // Base: 20
+    WALL_THICKNESS_SCALE: Math.round(30 * SIZE_MODIFIER), // Base: 30
     TREE_COUNT_MULTIPLIER: 15,
     
     // Game Counts
@@ -84,21 +91,21 @@ const CONFIG = {
     TRAINING_STATIONARY_TARGETS: 3,
     TRAINING_MOVING_TARGETS: 2,
     TRAINING_TARGET_HEALTH: 3,
-    TRAINING_TARGET_SIZE: 25,
+    TRAINING_TARGET_SIZE: Math.round(25 * SIZE_MODIFIER), // Base: 25
     TRAINING_TARGET_RESPAWN_TIME: 180, // frames (3 seconds)
     TRAINING_MOVING_TARGET_SPEED: 1,
-    TRAINING_MOVING_TARGET_RANGE: 100,
+    TRAINING_MOVING_TARGET_RANGE: Math.round(100 * SIZE_MODIFIER), // Base: 100
     TRAINING_AIMING_HELPER: true, // Show aiming assistance in training mode
     
     // Drone Properties
-    DRONE_SIZE: 12,
-    DRONE_SPEED: 1.2,
-    DRONE_ORBIT_DISTANCE: 60,
+    DRONE_SIZE: Math.round(12 * SIZE_MODIFIER), // Base: 12
+    DRONE_SPEED: 0.8, // Slower drone movement
+    DRONE_ORBIT_DISTANCE: Math.round(60 * SIZE_MODIFIER), // Base: 60
     DRONE_HEALTH: 2,
-    DRONE_RELOAD_TIME: 80,
-    DRONE_BULLET_SPEED: 2.5,
-    DRONE_BULLET_SIZE: 3,
-    DRONE_TARGET_RANGE: 150,
+    DRONE_RELOAD_TIME: 120, // Slower drone fire rate
+    DRONE_BULLET_SPEED: 2.0, // Slower drone bullets
+    DRONE_BULLET_SIZE: Math.round(3 * SIZE_MODIFIER), // Base: 3
+    DRONE_TARGET_RANGE: Math.round(150 * SIZE_MODIFIER), // Base: 150
     DRONE_ORBIT_SPEED: 0.02,
     
     // Gate Properties
@@ -135,6 +142,7 @@ const CONFIG = {
         vortex: { enabled: true, name: '🌀 Gravity Vortex', description: 'Creates a pulling gravity field' },
         teleport: { enabled: true, name: '🌌 Teleport Shot', description: 'Swaps positions with hit target' },
         shield: { enabled: true, name: '🛡️ Shield Wall', description: 'Deploys temporary protective barriers' },
+        energy_shield: { enabled: true, name: '⚡ Energy Shield', description: '10 seconds of invulnerability with electric shield' },
         bouncer: { enabled: true, name: '⚾ Super Bouncer', description: 'Bullets with extra wall bounces' },
         emp: { enabled: true, name: '⚡ EMP Blast', description: 'Disables enemy movement temporarily' },
         acid: { enabled: true, name: '🧪 Acid Spray', description: 'Leaves damaging acid pools' },

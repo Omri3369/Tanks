@@ -87,6 +87,7 @@ class ScoreManager {
             case 'vortex': return '🌀'; // Vortex
             case 'teleport': return '🌌'; // Galaxy for teleport
             case 'shield': return '🛡️'; // Shield
+            case 'energy_shield': return '⚡'; // Energy Shield
             case 'bouncer': return '⚾'; // Ball for bouncer
             case 'emp': return '⚡'; // Lightning for EMP
             case 'acid': return '🧪'; // Test tube for acid

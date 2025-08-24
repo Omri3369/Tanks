@@ -70,61 +70,42 @@ class DestructibleWall extends Wall {
     }
     
     draw() {
-        // Draw shadow
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
-        ctx.fillRect(this.x + 3, this.y + 3, this.width, this.height);
+        // Don't draw shadow - let the organic shape handle it
         
-        // Draw bright background color based on health
-        if (this.health === this.maxHealth) {
-            // Bright yellow for full health
-            ctx.fillStyle = '#FFEB3B';
-            ctx.fillRect(this.x, this.y, this.width, this.height);
-        } else if (this.health === 2) {
-            // Orange for damaged
-            ctx.fillStyle = '#FF9800';
-            ctx.fillRect(this.x, this.y, this.width, this.height);
-        } else if (this.health === 1) {
-            // Red for critical
-            ctx.fillStyle = '#F44336';
-            ctx.fillRect(this.x, this.y, this.width, this.height);
-        }
-        
-        // Draw wall texture semi-transparent over the color
+        // Draw wall sprite tiled with darker tint
         const tileSize = 32;
+        
         ctx.save();
-        ctx.globalAlpha = 0.3; // Very transparent to show bright color
+        
+        // First draw the wall texture normally
         for (let x = 0; x < this.width; x += tileSize) {
             for (let y = 0; y < this.height; y += tileSize) {
                 const drawWidth = Math.min(tileSize, this.width - x);
                 const drawHeight = Math.min(tileSize, this.height - y);
-                ctx.drawImage(
-                    wallImage,
-                    this.x + x, this.y + y, drawWidth, drawHeight
-                );
+                
+                if (wallImage && wallLoaded) {
+                    ctx.drawImage(
+                        wallImage,
+                        this.x + x, this.y + y, drawWidth, drawHeight
+                    );
+                }
             }
         }
-        ctx.restore();
         
-        // Draw thick colored border
-        ctx.lineWidth = 3;
+        // Apply darker tint to distinguish from regular walls
         if (this.health === this.maxHealth) {
-            ctx.strokeStyle = '#FFC107'; // Amber border
+            // Darker tint for full health destructible walls
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
         } else if (this.health === 2) {
-            ctx.strokeStyle = '#FF5722'; // Deep orange border
-        } else {
-            ctx.strokeStyle = '#B71C1C'; // Dark red border
+            // Even darker when damaged
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+        } else if (this.health === 1) {
+            // Very dark when critical
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
         }
-        ctx.strokeRect(this.x, this.y, this.width, this.height);
+        ctx.fillRect(this.x, this.y, this.width, this.height);
         
-        // Add pulsing effect for full health walls
-        if (this.health === this.maxHealth) {
-            const pulse = Math.sin(Date.now() * 0.003) * 0.2 + 0.3;
-            ctx.save();
-            ctx.globalAlpha = pulse;
-            ctx.fillStyle = '#FFFFFF';
-            ctx.fillRect(this.x, this.y, this.width, this.height);
-            ctx.restore();
-        }
+        ctx.restore();
         
         // Draw cracks based on damage
         if (this.health < this.maxHealth) {

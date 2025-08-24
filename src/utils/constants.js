@@ -14,7 +14,7 @@ export const MAP_SIZES = {
     large: { width: 1600, height: 1000 }
 };
 
-export const TILE_SIZE = 64;
+export const TILE_SIZE = 64; // Original tile size
 
 // Default colors
 export const DEFAULT_COLORS = {

@@ -477,6 +477,13 @@ class PowerUp {
                 drones.push(tank.drone);
             }
             
+            // Special handling for energy shield
+            if (this.type === 'energy_shield') {
+                tank.hasEnergyShield = true;
+                tank.energyShieldTime = 600; // 10 seconds at 60fps
+                tank.specialAmmo = 0; // Energy shield doesn't use ammo
+            }
+            
             // Trigger pickup notification
             tank.pickupNotification = getPowerUpSymbol(this.type);
             tank.pickupTimer = 120; // 2 seconds
@@ -627,6 +634,39 @@ class PowerUp {
                     ctx.stroke();
                 }
                 break;
+                
+            case 'energy_shield':
+                // Electric shield icon
+                ctx.strokeStyle = '#00DDFF';
+                ctx.lineWidth = 3;
+                // Outer circle
+                ctx.beginPath();
+                ctx.arc(0, 0, 10, 0, Math.PI * 2);
+                ctx.stroke();
+                // Lightning bolts around circle
+                for (let i = 0; i < 4; i++) {
+                    const angle = (Math.PI * 2 / 4) * i;
+                    const x1 = Math.cos(angle) * 8;
+                    const y1 = Math.sin(angle) * 8;
+                    const x2 = Math.cos(angle) * 12;
+                    const y2 = Math.sin(angle) * 12;
+                    ctx.beginPath();
+                    ctx.moveTo(x1, y1);
+                    ctx.lineTo(x2, y2);
+                    ctx.stroke();
+                }
+                // Inner shield symbol
+                ctx.fillStyle = '#FFF';
+                ctx.beginPath();
+                ctx.moveTo(0, -6);
+                ctx.lineTo(-5, -2);
+                ctx.lineTo(-5, 4);
+                ctx.lineTo(0, 6);
+                ctx.lineTo(5, 4);
+                ctx.lineTo(5, -2);
+                ctx.closePath();
+                ctx.fill();
+                break;
         }
         
         ctx.restore();
@@ -640,6 +680,7 @@ class PowerUp {
             case 'explosive': return '#FF3333';
             case 'piercing': return '#9966FF';
             case 'freeze': return '#66CCFF';
+            case 'energy_shield': return '#00DDFF';
             default: return '#FFD700';
         }
     }

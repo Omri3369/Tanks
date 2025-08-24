@@ -71,6 +71,27 @@ class TerrainRenderer {
                     this.terrainCtx.lineTo(gx + 2, gy - 4);
                     this.terrainCtx.stroke();
                 }
+            } else if (tile.type === 'bush') {
+                // Draw dense vegetation for bush texture
+                this.terrainCtx.fillStyle = 'rgba(40, 80, 30, 0.4)';
+                for (let i = 0; i < 8; i++) {
+                    const bx = tile.x + Math.random() * tile.size;
+                    const by = tile.y + Math.random() * tile.size;
+                    this.terrainCtx.beginPath();
+                    this.terrainCtx.arc(bx, by, 2 + Math.random() * 2, 0, Math.PI * 2);
+                    this.terrainCtx.fill();
+                }
+                // Add some branch-like strokes
+                this.terrainCtx.strokeStyle = 'rgba(60, 100, 40, 0.5)';
+                this.terrainCtx.lineWidth = 2;
+                for (let i = 0; i < 4; i++) {
+                    const bx = tile.x + Math.random() * tile.size;
+                    const by = tile.y + Math.random() * tile.size;
+                    this.terrainCtx.beginPath();
+                    this.terrainCtx.moveTo(bx, by);
+                    this.terrainCtx.lineTo(bx + (Math.random() - 0.5) * 8, by + (Math.random() - 0.5) * 8);
+                    this.terrainCtx.stroke();
+                }
             }
             this.terrainCtx.restore();
         });
@@ -205,6 +226,21 @@ class TerrainRenderer {
                     (typeof sandLoaded !== 'undefined' && sandLoaded) ? sandImage : null, 
                     '#C4B5A0', '#D4A574', TILE_SIZE);
             }
+            
+            // Draw bush patches
+            const bushTiles = terrainTiles.filter(tile => tile.type === 'bush');
+            if (bushTiles.length > 0) {
+                // Convert terrain tiles to grid coordinates for drawOrganicObstacleShape
+                const bushGridTiles = bushTiles.map(tile => ({
+                    x: Math.floor(tile.x / TILE_SIZE),
+                    y: Math.floor(tile.y / TILE_SIZE),
+                    type: 'bush'
+                }));
+                // Draw bush patches with vegetation appearance
+                this.drawOrganicObstacleShape(ctx, bushGridTiles, 
+                    null, // No sprite, use solid color
+                    '#4A6741', '#3A5731', TILE_SIZE);
+            }
         }
         
         // Finally draw organic shapes for obstacles (walls and water) on top
@@ -219,42 +255,105 @@ class TerrainRenderer {
                     '#4682B4', '#1565C0', TILE_SIZE);
             }
             
-            // Draw walls using their individual draw methods (to show destructible walls)
-            // First draw regular walls using organic shape
-            const regularWallTiles = [];
-            const destructibleWallPositions = new Set();
-            
-            // Identify which tiles belong to destructible walls
-            if (typeof walls !== 'undefined') {
-                walls.forEach(wall => {
-                    if (wall instanceof DestructibleWall) {
-                        const tileX = Math.floor(wall.x / TILE_SIZE);
-                        const tileY = Math.floor(wall.y / TILE_SIZE);
-                        destructibleWallPositions.add(`${tileX},${tileY}`);
-                    }
-                });
-            }
-            
-            // Separate regular wall tiles from destructible ones
-            wallTiles.forEach(tile => {
-                const key = `${tile.x},${tile.y}`;
-                if (!destructibleWallPositions.has(key)) {
-                    regularWallTiles.push(tile);
-                }
-            });
-            
-            // Draw regular walls with organic shape
-            if (regularWallTiles.length > 0) {
-                this.drawOrganicObstacleShape(ctx, regularWallTiles, 
+            // Draw all walls (including destructible) with organic shape
+            if (wallTiles.length > 0) {
+                this.drawOrganicObstacleShape(ctx, wallTiles, 
                     (typeof wallLoaded !== 'undefined' && wallLoaded) ? wallImage : null, 
                     '#8B4513', '#5D4E37', TILE_SIZE);
             }
             
-            // Draw destructible walls using their custom draw method
+            // Draw destructible walls with darker wall texture
             if (typeof walls !== 'undefined') {
                 walls.forEach(wall => {
                     if (wall instanceof DestructibleWall) {
-                        wall.draw();
+                        ctx.save();
+                        
+                        // Create clipping region for this wall
+                        ctx.beginPath();
+                        ctx.rect(wall.x, wall.y, wall.width, wall.height);
+                        ctx.clip();
+                        
+                        // Draw the wall texture darker using composite operation
+                        ctx.globalAlpha = 0.6; // Make it darker by reducing opacity
+                        
+                        // Draw wall texture
+                        if (wallImage && wallLoaded) {
+                            const tileSize = TILE_SIZE;
+                            for (let x = 0; x < wall.width; x += tileSize) {
+                                for (let y = 0; y < wall.height; y += tileSize) {
+                                    const drawWidth = Math.min(tileSize, wall.width - x);
+                                    const drawHeight = Math.min(tileSize, wall.height - y);
+                                    
+                                    ctx.drawImage(
+                                        wallImage,
+                                        wall.x + x, wall.y + y, 
+                                        drawWidth, drawHeight
+                                    );
+                                }
+                            }
+                        }
+                        
+                        // Add darkening overlay based on health
+                        ctx.globalAlpha = 1.0;
+                        if (wall.health === wall.maxHealth) {
+                            ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+                        } else if (wall.health === 2) {
+                            ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+                        } else if (wall.health === 1) {
+                            ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+                        }
+                        ctx.fillRect(wall.x, wall.y, wall.width, wall.height);
+                        
+                        // Draw cracks if damaged
+                        if (wall.health < wall.maxHealth) {
+                            ctx.strokeStyle = '#2C1810';
+                            ctx.lineWidth = 2;
+                            ctx.globalAlpha = 0.7;
+                            
+                            if (wall.health <= 2) {
+                                // Draw first crack
+                                ctx.beginPath();
+                                ctx.moveTo(wall.x + wall.width * 0.3, wall.y);
+                                ctx.lineTo(wall.x + wall.width * 0.4, wall.y + wall.height * 0.4);
+                                ctx.lineTo(wall.x + wall.width * 0.2, wall.y + wall.height);
+                                ctx.stroke();
+                            }
+                            
+                            if (wall.health <= 1) {
+                                // Draw second crack
+                                ctx.beginPath();
+                                ctx.moveTo(wall.x + wall.width * 0.7, wall.y);
+                                ctx.lineTo(wall.x + wall.width * 0.6, wall.y + wall.height * 0.6);
+                                ctx.lineTo(wall.x + wall.width * 0.8, wall.y + wall.height);
+                                ctx.stroke();
+                                
+                                // Draw third crack horizontally
+                                ctx.beginPath();
+                                ctx.moveTo(wall.x, wall.y + wall.height * 0.5);
+                                ctx.lineTo(wall.x + wall.width * 0.3, wall.y + wall.height * 0.6);
+                                ctx.lineTo(wall.x + wall.width * 0.7, wall.y + wall.height * 0.4);
+                                ctx.lineTo(wall.x + wall.width, wall.y + wall.height * 0.5);
+                                ctx.stroke();
+                            }
+                            
+                            ctx.globalAlpha = 1.0;
+                        }
+                        
+                        // Draw health indicator bars
+                        if (wall.health < wall.maxHealth && wall.health > 0) {
+                            const barWidth = 4;
+                            const barHeight = 2;
+                            const barSpacing = 2;
+                            const totalWidth = wall.maxHealth * (barWidth + barSpacing);
+                            const startX = wall.x + (wall.width - totalWidth) / 2;
+                            const startY = wall.y - 8;
+                            
+                            for (let i = 0; i < wall.maxHealth; i++) {
+                                ctx.fillStyle = i < wall.health ? '#4CAF50' : '#424242';
+                                ctx.fillRect(startX + i * (barWidth + barSpacing), startY, barWidth, barHeight);
+                            }
+                        }
+                        ctx.restore();
                     }
                 });
             }

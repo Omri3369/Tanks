@@ -1,4 +1,138 @@
-# Hazard System Refactor Plan
+# Team Games Implementation Plan
+
+## Current State Analysis
+- ✅ Game supports single-player, AI, and multiplayer modes
+- ✅ Tank system with colors and player identification
+- ✅ Bullet collision system
+- ✅ Power-ups and scoring system
+- ✅ WebSocket multiplayer infrastructure exists
+- ❓ Need to add team-based game modes
+
+## Implementation Plan
+
+### Phase 1: Core Team Infrastructure
+- [ ] Create team system with team assignment
+- [ ] Add team colors and visual indicators
+- [ ] Modify collision detection for friendly fire rules
+- [ ] Update scoring system for team-based scoring
+- [ ] Create team-based spawn positioning
+
+### Phase 2: Team Game Modes
+- [ ] **Team Deathmatch** - Two teams, eliminate enemy team members
+- [ ] **Capture the Flag** - Teams try to capture and return enemy flag
+- [ ] **King of the Hill** - Teams fight for control of central area
+- [ ] **Team Last Tank Standing** - Team elimination with respawns
+
+### Phase 3: UI and Visual Enhancements
+- [ ] Team scoreboard display
+- [ ] Team member indicators (minimap dots, name tags)
+- [ ] Team chat/communication system
+- [ ] Victory conditions display for teams
+- [ ] Team selection interface
+
+### Phase 4: Advanced Features
+- [ ] Team-specific power-ups and abilities
+- [ ] Team base areas with special properties
+- [ ] Spectator mode for eliminated players
+- [ ] Team statistics and MVP tracking
+
+## Game Mode Specifications
+
+### Team Deathmatch
+- 2-4 teams with 1-4 players each
+- First team to X kills wins
+- Optional respawn system
+- Friendly fire toggle
+
+### Capture the Flag
+- 2 teams with bases and flags
+- Capture enemy flag, return to base
+- Flag carriers move slower, can't use power-ups
+- First to 3 captures wins
+
+### King of the Hill
+- Central control point
+- Team earns points while controlling area
+- First to 100 points or time limit wins
+- Dynamic control zone
+
+### Team Last Tank Standing
+- Teams fight until one team remains
+- Optional limited respawns per team
+- Sudden death with shrinking play area
+
+## Technical Considerations
+- Maintain compatibility with existing multiplayer system
+- Team assignment through room settings
+- Balance team sizes automatically
+- Handle disconnections gracefully per team
+
+---
+
+# Previous Task History - Tank Class Refactoring Plan
+
+## Current Issues
+The Tank class (1,343 lines) has grown too complex and handles too many responsibilities:
+
+1. **Tank State Management** (lines 2-48)
+2. **Movement & Physics** (lines 60-171) 
+3. **Complex AI System** (lines 174-601) - 427 lines!
+4. **Combat System** (lines 603-675)
+5. **Collision Detection** (lines 677-763)
+6. **Visual Rendering** (lines 910-1283) - 373 lines!
+7. **Trail System** (lines 834-908)
+8. **Power-up Management** (lines 165-170, scattered)
+9. **Animation System** (lines 25-31, 135-171)
+
+## Proposed Refactoring Plan
+
+### Phase 1: Extract AI System (Highest Impact)
+- [ ] Create `TankAI` class to handle all AI logic (lines 174-601)
+- [ ] Extract AI state management 
+- [ ] Move behavior methods (hunt, strafe, powerup, retreat)
+- [ ] Keep only `updateAI()` call in Tank class
+
+### Phase 2: Extract Rendering System  
+- [ ] Create `TankRenderer` class for all drawing logic (lines 910-1283)
+- [ ] Move trail rendering, pickup notifications, camouflage effects
+- [ ] Keep only `draw()` call in Tank class
+
+### Phase 3: Extract Movement & Physics
+- [ ] Create `TankMovement` helper class
+- [ ] Move collision detection methods
+- [ ] Handle terrain effects (sand, bushes)
+- [ ] Manage screen wrapping logic
+
+### Phase 4: Extract Combat System
+- [ ] Create `TankCombat` helper class  
+- [ ] Move shooting logic and power-up management
+- [ ] Handle special ammunition types
+- [ ] Manage reload timing
+
+### Phase 5: Extract Animation & Effects
+- [ ] Create `TankAnimator` helper class
+- [ ] Move trail system, wheel rotation, engine effects
+- [ ] Handle pickup notifications
+- [ ] Manage visual state transitions
+
+## Benefits
+- **Tank class reduces from 1,343 to ~200 lines**
+- **Single Responsibility Principle** - each class has one job
+- **Easier Testing** - can test AI, rendering, etc. separately  
+- **Better Maintainability** - changes isolated to specific systems
+- **Reusability** - AI system could work with other game objects
+
+## Implementation Strategy
+- Keep all existing functionality working
+- Use dependency injection for shared state
+- Maintain backward compatibility with existing game code
+- Test each extraction individually
+
+---
+
+# Previous Task History
+
+## Hazard System Refactor Plan
 
 ## Goal
 Refactor the hazard system to follow the same modular pattern as the weapons system, breaking down the large HazardSystem.js file into individual hazard class files and creating bundle files.

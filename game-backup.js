@@ -1,11 +1,17 @@
-// Clean version with orphaned Bullet code removed
-// This file should be renamed to game.js after verification
+// MODULAR GAME SYSTEM
+// Core game logic has been modularized. Legacy global variables are mapped
+// to the new modular system via core-bundle.js for backward compatibility.
 
-// Game constants from CONFIG - will be set in initializeGlobals()
-let TANK_SPEED;
-let TANK_TURN_SPEED;
+const canvas = document.getElementById(DOM_ELEMENTS.canvas);
+const ctx = canvas.getContext('2d');
+const startScreen = document.getElementById(DOM_ELEMENTS.startScreen);
+const scoreBoard = document.getElementById(DOM_ELEMENTS.scoreBoard);
+const controls = document.getElementById(DOM_ELEMENTS.controls);
 
-let canvas, ctx;
+let gameMode = 0;
+let gameRunning = false;
+let mapSize = 'medium'; // 'small', 'medium', 'large'
+let mapSizes = MAP_SIZES;
 let tanks = [];
 let bullets = [];
 let walls = [];
@@ -16,36 +22,62 @@ let explosions = [];
 let mines = [];
 let drones = [];
 let targets = [];
-
-let mapSize = 'medium';
-let mapSizes = {
-    small: { width: 800, height: 600 },
-    medium: { width: 1200, height: 800 },
-    large: { width: 1600, height: 900 }
-};
-
-let gameMode = 0; // 0: Training, 1: Single Player, 2: Multiplayer
-let gameRunning = false;
-let roundStartTime = Date.now();
+let scores = {};
+let kills = {}; // Track kills for each player
+let ringOfFire = null;
+let roundStartTime = 0;
 let roundResetting = false;
 let gameWinner = null;
 let graceTimer = 0;
 
-let scores = {
-    player1: 0,
-    player2: 0
+// Terrain system variables
+let terrainTiles = [];
+let terrainFeatures = [];
+let terrainCanvas = null;
+let terrainCtx = null;
+let terrainCached = false;
+let obstacleTiles = [];
+
+// Underground tunnel system
+let tunnelEntrances = [];
+let tunnelNetwork = new Map(); // Maps entrance IDs to connected entrances
+let teleportEffects = []; // Visual effects for teleportation
+
+// Background and obstacle images
+let grassImage = new Image();
+grassImage.src = ASSETS.images.grass;
+let grassLoaded = false;
+grassImage.onload = () => { grassLoaded = true; };
+
+let wallImage = new Image();
+wallImage.src = ASSETS.images.wall;
+let wallLoaded = false;
+wallImage.onload = () => { wallLoaded = true; };
+
+let waterImage = new Image();
+waterImage.src = ASSETS.images.water;
+let waterLoaded = false;
+waterImage.onload = () => { 
+    waterLoaded = true; 
 };
 
-let kills = {
-    player1: 0,
-    player2: 0
-};
+let sandImage = new Image();
+sandImage.src = ASSETS.images.sand;
+let sandLoaded = false;
+sandImage.onload = () => { sandLoaded = true; };
 
+// Player colors (can be modified by settings)
+let PLAYER1_COLOR = DEFAULT_COLORS.PLAYER1_COLOR;
+let PLAYER2_COLOR = DEFAULT_COLORS.PLAYER2_COLOR;
+let PLAYER1_SECONDARY_COLOR = DEFAULT_COLORS.PLAYER1_SECONDARY_COLOR;
+let PLAYER2_SECONDARY_COLOR = DEFAULT_COLORS.PLAYER2_SECONDARY_COLOR;
+
+// Camera/Zoom system for winner effect
 let camera = {
-    x: 0,
-    y: 0,
     scale: 1.0,
     targetScale: 1.0,
+    x: 0,
+    y: 0,
     targetX: 0,
     targetY: 0,
     isZooming: false,
@@ -55,92 +87,46 @@ let camera = {
     shakeY: 0
 };
 
-let ringOfFire = null;
+// Use CONFIG values (can be modified by settings)
+let TANK_SIZE = CONFIG.TANK_SIZE;
+let TANK_SPEED = CONFIG.TANK_SPEED;
+let TANK_TURN_SPEED = CONFIG.TANK_TURN_SPEED;
+let BULLET_SPEED = CONFIG.BULLET_SPEED;
+let BULLET_SIZE = CONFIG.BULLET_SIZE;
+let BULLET_LIFETIME = CONFIG.BULLET_LIFETIME;
+let POWERUP_SIZE = CONFIG.POWERUP_SIZE;
+let TILE_SIZE = TERRAIN.TILE_SIZE;
 
-// Terrain system arrays
-let terrainTiles = [];
-let obstacleTiles = [];
-let tunnelSystem = null;
+// Initialize AI system
+const aiSystem = new AIBehavior();
 
-// AI system (only when AI players are present)
-let aiSystem = null;
+// Initialize Remote Input Handler
+const remoteInputHandler = new RemoteInputHandler();
 
-// Modular managers (loaded via modules)
-// scoreManager is created globally in ScoreManager.js
-let terrainGenerator = null;
-let terrainRenderer = null;
-let inputHandler = null;
-let remoteInputHandler = null;
+// Initialize Input system
+const inputHandler = new InputHandler();
 
-// Store references to old functions that are now class methods
-let shootBullet = null;
+// Game state object for AI (now managed by GameState class)
+// gameState is initialized in core-bundle.js
 
-// Tank and Bullet classes are loaded from their respective modules
-// Tank is defined in src/game/Tank.js
-// Bullet is defined in src/game/entities/entities-bundle.js
+// Bullet class moved to src/game/entities/entities-bundle.js
 
-// Function to initialize globals after modules are loaded
-function initializeGlobals() {
-    // Initialize game constants from CONFIG
-    TANK_SPEED = CONFIG.TANK_SPEED;
-    TANK_TURN_SPEED = CONFIG.TANK_TURN_SPEED;
-    
-    // Also set on window for other modules that check window.TANK_SPEED
-    window.TANK_SPEED = TANK_SPEED;
-    window.TANK_TURN_SPEED = TANK_TURN_SPEED;
-    
-    console.log('[GAME] Initialized TANK_SPEED to:', TANK_SPEED, 'window.TANK_SPEED:', window.TANK_SPEED);
-    
-    // These are now loaded from modules
-    if (typeof window.Tank !== 'undefined') {
-        Tank = window.Tank;
-    }
-    if (typeof window.Bullet !== 'undefined') {
-        Bullet = window.Bullet;
-    }
-    
-    // Initialize terrain system
-    if (typeof window.TerrainGenerator !== 'undefined') {
-        terrainGenerator = new window.TerrainGenerator();
-    }
-    if (typeof window.TerrainRenderer !== 'undefined') {
-        terrainRenderer = new window.TerrainRenderer();
-    }
-    if (typeof window.TunnelSystem !== 'undefined') {
-        tunnelSystem = new window.TunnelSystem();
-    }
-    
-    // Initialize score manager
-    if (typeof window.ScoreManager !== 'undefined') {
-        scoreManager = new window.ScoreManager();
-    }
-    
-    // Initialize input handler
-    if (typeof window.InputHandler !== 'undefined') {
-        inputHandler = new window.InputHandler();
-        window.inputHandler = inputHandler; // Make it globally accessible
-    }
-    
-    // Initialize remote input handler
-    if (typeof window.RemoteInputHandler !== 'undefined') {
-        remoteInputHandler = new window.RemoteInputHandler();
-    }
-    
-    // Initialize AI system
-    if (typeof window.AIBehavior !== 'undefined') {
-        aiSystem = new window.AIBehavior();
-        window.aiSystem = aiSystem; // Make it globally accessible
-    }
-    
-    // Reference the shootBullet method if Tank class is available
-    if (Tank && Tank.prototype.shootBullet) {
-        shootBullet = function(tank) {
-            return tank.shootBullet();
-        };
-    }
-    
-    console.log('[GAME] Global variables initialized');
-}
+// Bullet class implementation removed to avoid conflicts with bundle files
+// The proper Bullet class is loaded from the entities bundle
+
+
+// Wall, DestructibleWall, and Gate classes moved to src/game/obstacles/obstacles-bundle.js
+
+
+
+// Mine class moved to src/game/entities/entities-bundle.js
+
+// Target class moved to src/game/entities/entities-bundle.js
+
+// Drone class moved to src/game/entities/entities-bundle.js
+
+// RingOfFire class moved to src/game/effects/effects-bundle.js
+
 
 function generateSafeItemPosition() {
     let validPosition = false;
@@ -153,6 +139,64 @@ function generateSafeItemPosition() {
         
         // Check not too close to walls
         validPosition = true;
+        for (let wall of walls) {
+            if (x - 15 < wall.x + wall.width &&
+                x + 15 > wall.x &&
+                y - 15 < wall.y + wall.height &&
+                y + 15 > wall.y) {
+                validPosition = false;
+                break;
+            }
+        }
+    }
+    
+    return validPosition ? { x, y } : { x: 100 + Math.random() * (canvas.width - 200), y: 100 + Math.random() * (canvas.height - 200) };
+}
+
+// Bullet class moved to src/game/entities/entities-bundle.js
+
+function getBulletLifetime(type) {
+        switch(type) {
+            case 'laser': return BULLET_LIFETIME * 0.7;
+            case 'rocket': return BULLET_LIFETIME * 1.5;
+            case 'explosive': return BULLET_LIFETIME * 1.2;
+            case 'piercing': return BULLET_LIFETIME * 0.8;
+            case 'freeze': return BULLET_LIFETIME * 1.3;
+            default: return BULLET_LIFETIME;
+        }
+    }
+    
+function getBulletSize(type) {
+    switch(type) {
+        case 'laser': return BULLET_SIZE * 0.5;
+        case 'rocket': return BULLET_SIZE * 1.5;
+        case 'explosive': return BULLET_SIZE * 1.3;
+        case 'piercing': return BULLET_SIZE * 0.8;
+        case 'freeze': return BULLET_SIZE * 1.2;
+        default: return BULLET_SIZE;
+    }
+}
+
+// All Bullet class methods removed - moved to src/game/entities/entities-bundle.js
+// Wall, DestructibleWall, and Gate classes moved to src/game/obstacles/obstacles-bundle.js
+// PowerUp class moved to src/game/entities/entities-bundle.js
+// Particle, SmokeParticle, and Explosion classes moved to src/game/effects/effects-bundle.js
+// Mine class moved to src/game/entities/entities-bundle.js  
+// Target class moved to src/game/entities/entities-bundle.js
+// Drone class moved to src/game/entities/entities-bundle.js
+// RingOfFire class moved to src/game/effects/effects-bundle.js
+
+function generateSafeItemPosition() {
+    let validPosition = false;
+    let x, y;
+    let attempts = 0;
+    
+    while (!validPosition && attempts < 100) {
+        x = Math.random() * (canvas.width - 100) + 50;
+        y = Math.random() * (canvas.height - 100) + 50;
+        validPosition = true;
+        
+        // Check not on walls
         for (let wall of walls) {
             if (x + 15 > wall.x && 
                 x - 15 < wall.x + wall.width &&
@@ -185,29 +229,6 @@ function generateSafeItemPosition() {
     return validPosition ? { x, y } : { x: 100 + Math.random() * (canvas.width - 200), y: 100 + Math.random() * (canvas.height - 200) };
 }
 
-function getBulletLifetime(type) {
-    switch(type) {
-        case 'laser': return BULLET_LIFETIME * 0.7;
-        case 'rocket': return BULLET_LIFETIME * 1.5;
-        case 'explosive': return BULLET_LIFETIME * 1.2;
-        case 'piercing': return BULLET_LIFETIME * 0.8;
-        case 'freeze': return BULLET_LIFETIME * 1.3;
-        default: return BULLET_LIFETIME;
-    }
-}
-
-function getBulletSize(type) {
-    switch(type) {
-        case 'laser': return BULLET_SIZE * 0.5;
-        case 'rocket': return BULLET_SIZE * 1.5;
-        case 'explosive': return BULLET_SIZE * 1.3;
-        case 'piercing': return BULLET_SIZE * 0.8;
-        case 'freeze': return BULLET_SIZE * 1.2;
-        default: return BULLET_SIZE;
-    }
-}
-
-// All Bullet class methods removed - moved to src/game/entities/entities-bundle.js
 // Wall, DestructibleWall, and Gate classes moved to src/game/obstacles/obstacles-bundle.js
 // PowerUp class moved to src/game/entities/entities-bundle.js  
 // Particle, SmokeParticle, and Explosion classes moved to src/game/effects/effects-bundle.js
@@ -216,88 +237,562 @@ function getBulletSize(type) {
 // Drone class moved to src/game/entities/entities-bundle.js
 // RingOfFire class moved to src/game/effects/effects-bundle.js
 
-// Track used spawn positions to prevent duplicates
-let usedSpawnPositions = [];
-
 function generateSafeSpawnPosition() {
     let validPosition = false;
     let x, y;
     let attempts = 0;
-    const maxAttempts = 100;
-    const minDistanceFromUsedPositions = 100; // Minimum distance from any previously used spawn position
     
-    console.log(`[SPAWN] Starting spawn generation. ObstacleTiles: ${obstacleTiles ? obstacleTiles.length : 0}, Walls: ${walls ? walls.length : 0}`);
-    
-    while (!validPosition && attempts < maxAttempts) {
-        // Generate random position with good buffer from edges
+    while (!validPosition && attempts < 100) {
         x = Math.random() * (canvas.width - 200) + 100;
         y = Math.random() * (canvas.height - 200) + 100;
         validPosition = true;
         
-        // Check not too close to previously used spawn positions
-        for (let usedPos of usedSpawnPositions) {
-            const distance = Math.sqrt((x - usedPos.x) ** 2 + (y - usedPos.y) ** 2);
-            if (distance < minDistanceFromUsedPositions) {
+        // Check not too close to walls
+        for (let wall of walls) {
+            if (x + TANK_SIZE + 20 > wall.x && 
+                x - TANK_SIZE - 20 < wall.x + wall.width &&
+                y + TANK_SIZE + 20 > wall.y && 
+                y - TANK_SIZE - 20 < wall.y + wall.height) {
+                validPosition = false;
+                break;
+            }
+        }
+                            return false; // Remove bullet
+                        }
+                    }
+                } else {
+                    // Regular indestructible wall
+                    if (this.type === 'piercing' && this.pierced < this.maxPiercing) {
+                        // Piercing bullets go through walls
+                        this.pierced++;
+                        // Create piercing effect
+                        for (let i = 0; i < 5; i++) {
+                            particles.push(new Particle(this.x, this.y, '#9966FF'));
+                        }
+                    } else if (this.type === 'explosive' || this.type === 'rocket') {
+                        // Explosive bullets explode on wall contact
+                        if (this.type === 'explosive') {
+                            this.createExplosion();
+                        } else {
+                            this.createBigExplosion();
+                        }
+                        return false; // Remove bullet after explosion
+                    } else {
+                        this.bounceOffWall(wall);
+                    }
+                }
+            }
+        }
+        
+        // Check obstacle tile collisions
+        for (let tile of obstacleTiles) {
+            // Water doesn't block bullets
+            if (tile.type === 'water') continue;
+            
+            const tileLeft = tile.x * TILE_SIZE;
+            const tileRight = tileLeft + TILE_SIZE;
+            const tileTop = tile.y * TILE_SIZE;
+            const tileBottom = tileTop + TILE_SIZE;
+            
+            if (this.x + this.size > tileLeft && 
+                this.x - this.size < tileRight &&
+                this.y + this.size > tileTop && 
+                this.y - this.size < tileBottom) {
+                
+                if (this.type === 'piercing' && this.pierced < this.maxPiercing) {
+                    // Piercing bullets go through obstacles
+                    this.pierced++;
+                    // Create piercing effect
+                    for (let i = 0; i < 5; i++) {
+                        particles.push(new Particle(this.x, this.y, '#9966FF'));
+                    }
+                } else if (this.type === 'explosive' || this.type === 'rocket') {
+                    // Explosive bullets explode on obstacle contact
+                    if (this.type === 'explosive') {
+                        this.createExplosion();
+                    } else {
+                        this.createBigExplosion();
+                    }
+                    return false; // Remove bullet after explosion
+                } else {
+                    // Bounce off obstacle tile
+                    const tileCenterX = tileLeft + TILE_SIZE / 2;
+                    const tileCenterY = tileTop + TILE_SIZE / 2;
+                    const dx = this.x - tileCenterX;
+                    const dy = this.y - tileCenterY;
+                    
+                    if (Math.abs(dx) > Math.abs(dy)) {
+                        this.angle = Math.PI - this.angle;
+                    } else {
+                        this.angle = -this.angle;
+                    }
+                }
+            }
+        }
+        
+        this.lifetime--;
+        return this.lifetime > 0;
+    }
+    
+    checkWallCollision(wall) {
+        // Piercing bullets ignore wall collisions completely
+        if (this.type === 'piercing') {
+            return false;
+        }
+        
+        return this.x + this.size > wall.x && 
+               this.x - this.size < wall.x + wall.width &&
+               this.y + this.size > wall.y && 
+               this.y - this.size < wall.y + wall.height;
+    }
+    
+    bounceOffWall(wall) {
+        const centerX = wall.x + wall.width / 2;
+        const centerY = wall.y + wall.height / 2;
+        const dx = this.x - centerX;
+        const dy = this.y - centerY;
+        
+        if (Math.abs(dx) / wall.width > Math.abs(dy) / wall.height) {
+            this.angle = Math.PI - this.angle;
+            this.x = dx > 0 ? wall.x + wall.width + this.size : wall.x - this.size;
+        } else {
+            this.angle = -this.angle;
+            this.y = dy > 0 ? wall.y + wall.height + this.size : wall.y - this.size;
+        }
+    }
+    
+    checkTankCollision(tank) {
+        if (!tank.alive) return false;
+        const distance = Math.sqrt((this.x - tank.x) ** 2 + (this.y - tank.y) ** 2);
+        
+        if (distance < TANK_SIZE) {
+            // Apply special effects based on bullet type
+            this.applySpecialEffect(tank);
+            return true;
+        }
+        return false;
+    }
+    
+    checkTargetCollision(target) {
+        if (target.destroyed) return false;
+        const distance = Math.sqrt((this.x - target.x) ** 2 + (this.y - target.y) ** 2);
+        
+        if (distance < target.size) {
+            return true;
+        }
+        return false;
+    }
+    
+    applySpecialEffect(tank) {
+        switch(this.type) {
+            case 'explosive':
+                // Create explosion damage area
+                this.createExplosion();
+                break;
+            case 'rocket':
+                // Bigger explosion and screen shake
+                this.createBigExplosion();
+                break;
+        }
+    }
+    
+    createExplosion() {
+        // Create explosion at impact point
+        explosions.push(new Explosion(this.x, this.y));
+        
+        // Damage nearby tanks
+        tanks.forEach(tank => {
+            if (!tank.alive) return;
+            const distance = Math.sqrt((this.x - tank.x) ** 2 + (this.y - tank.y) ** 2);
+            if (distance < 60) { // Explosion radius
+                tank.destroy();
+            }
+        });
+        
+        // Create explosion particles
+        for (let i = 0; i < 20; i++) {
+            particles.push(new Particle(this.x, this.y, '#FF3333'));
+        }
+    }
+    
+    createBigExplosion() {
+        // Bigger explosion for rockets
+        explosions.push(new Explosion(this.x, this.y));
+        
+        // Larger damage radius
+        tanks.forEach(tank => {
+            if (!tank.alive) return;
+            const distance = Math.sqrt((this.x - tank.x) ** 2 + (this.y - tank.y) ** 2);
+            if (distance < 80) { // Bigger explosion radius
+                tank.destroy();
+            }
+        });
+        
+        // More particles
+        for (let i = 0; i < 30; i++) {
+            particles.push(new Particle(this.x, this.y, '#FF6600'));
+        }
+    }
+    
+    draw() {
+        // Calculate positions where bullet needs to be drawn (for edge wrapping)
+        const positions = [];
+        positions.push({ x: this.x, y: this.y }); // Main position
+        
+        // Check if bullet needs to be drawn on opposite edges
+        if (this.x < this.size * 2) {
+            positions.push({ x: this.x + canvas.width, y: this.y });
+        } else if (this.x > canvas.width - this.size * 2) {
+            positions.push({ x: this.x - canvas.width, y: this.y });
+        }
+        
+        if (this.y < this.size * 2) {
+            positions.push({ x: this.x, y: this.y + canvas.height });
+        } else if (this.y > canvas.height - this.size * 2) {
+            positions.push({ x: this.x, y: this.y - canvas.height });
+        }
+        
+        // Check corners
+        if (this.x < this.size * 2 && this.y < this.size * 2) {
+            positions.push({ x: this.x + canvas.width, y: this.y + canvas.height });
+        } else if (this.x > canvas.width - this.size * 2 && this.y < this.size * 2) {
+            positions.push({ x: this.x - canvas.width, y: this.y + canvas.height });
+        } else if (this.x < this.size * 2 && this.y > canvas.height - this.size * 2) {
+            positions.push({ x: this.x + canvas.width, y: this.y - canvas.height });
+        } else if (this.x > canvas.width - this.size * 2 && this.y > canvas.height - this.size * 2) {
+            positions.push({ x: this.x - canvas.width, y: this.y - canvas.height });
+        }
+        
+        // Draw bullet at all necessary positions
+        positions.forEach(pos => {
+            this.drawBulletAt(pos.x, pos.y);
+        });
+    }
+    
+    drawBulletAt(drawX, drawY) {
+        ctx.save();
+        
+        // Store original position temporarily
+        const originalX = this.x;
+        const originalY = this.y;
+        this.x = drawX;
+        this.y = drawY;
+        
+        // Different visual effects for each bullet type
+        switch(this.type) {
+            case 'scatter':
+                this.drawScatterBullet();
+                break;
+            case 'laser':
+                this.drawLaserBullet();
+                break;
+            case 'rocket':
+                this.drawRocketBullet();
+                break;
+            case 'explosive':
+                this.drawExplosiveBullet();
+                break;
+            case 'piercing':
+                this.drawPiercingBullet();
+                break;
+            default:
+                this.drawRegularBullet();
+                break;
+        }
+        
+        // Restore original position
+        this.x = originalX;
+        this.y = originalY;
+        
+        ctx.restore();
+    }
+    
+    drawRegularBullet() {
+        ctx.shadowColor = '#fff';
+        ctx.shadowBlur = 8;
+        
+        const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.size);
+        gradient.addColorStop(0, '#ffffff');
+        gradient.addColorStop(0.7, '#ffeeaa');
+        gradient.addColorStop(1, '#ff9900');
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    
+    drawScatterBullet() {
+        ctx.shadowColor = '#FFD700';
+        ctx.shadowBlur = 10;
+        
+        // Sparkling effect
+        const sparkle = Math.sin(Date.now() * 0.02) * 0.5 + 0.5;
+        ctx.fillStyle = `rgba(255, 215, 0, ${0.8 + sparkle * 0.2})`;
+        
+        // Star shape
+        ctx.beginPath();
+        for (let i = 0; i < 5; i++) {
+            const angle = (i * Math.PI * 2) / 5 - Math.PI / 2;
+            const x = this.x + Math.cos(angle) * this.size;
+            const y = this.y + Math.sin(angle) * this.size;
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+        ctx.fill();
+        
+        // Inner glow
+        ctx.fillStyle = '#FFFF88';
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size * 0.4, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    
+    drawLaserBullet() {
+        ctx.shadowColor = '#00ffff';
+        ctx.shadowBlur = 15;
+        
+        // Laser beam effect
+        ctx.strokeStyle = '#00ffff';
+        ctx.lineWidth = this.size * 2;
+        ctx.globalAlpha = 0.8;
+        ctx.beginPath();
+        ctx.moveTo(this.x - Math.cos(this.angle) * 30, this.y - Math.sin(this.angle) * 30);
+        ctx.lineTo(this.x + Math.cos(this.angle) * 10, this.y + Math.sin(this.angle) * 10);
+        ctx.stroke();
+        
+        // Core beam
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = this.size;
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+        
+        // Pulse effect
+        const pulse = Math.sin(Date.now() * 0.05) * 0.3 + 0.7;
+        ctx.fillStyle = `rgba(0, 255, 255, ${pulse})`;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size * pulse, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    
+    drawRocketBullet() {
+        ctx.shadowColor = '#FF6600';
+        ctx.shadowBlur = 12;
+        
+        // Rocket body
+        ctx.fillStyle = '#666';
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.angle);
+        ctx.fillRect(-this.size, -this.size/2, this.size * 2, this.size);
+        
+        // Rocket tip
+        ctx.fillStyle = '#888';
+        ctx.beginPath();
+        ctx.moveTo(this.size, 0);
+        ctx.lineTo(this.size * 0.5, -this.size/2);
+        ctx.lineTo(this.size * 0.5, this.size/2);
+        ctx.closePath();
+        ctx.fill();
+        
+        // Flame trail
+        ctx.fillStyle = '#FF6600';
+        ctx.beginPath();
+        ctx.moveTo(-this.size, -this.size/3);
+        ctx.lineTo(-this.size * 2, 0);
+        ctx.lineTo(-this.size, this.size/3);
+        ctx.closePath();
+        ctx.fill();
+        
+        ctx.fillStyle = '#FFAA00';
+        ctx.beginPath();
+        ctx.moveTo(-this.size, -this.size/4);
+        ctx.lineTo(-this.size * 1.5, 0);
+        ctx.lineTo(-this.size, this.size/4);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+    }
+    
+    drawExplosiveBullet() {
+        ctx.shadowColor = '#FF3333';
+        ctx.shadowBlur = 15;
+        
+        // Pulsing bomb
+        const pulse = Math.sin(Date.now() * 0.1) * 0.3 + 0.7;
+        ctx.fillStyle = '#333';
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size * pulse, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Danger stripes
+        ctx.strokeStyle = '#FF3333';
+        ctx.lineWidth = 2;
+        for (let i = 0; i < 3; i++) {
+            const angle = (i * Math.PI * 2) / 3;
+            ctx.beginPath();
+            ctx.moveTo(this.x + Math.cos(angle) * this.size * 0.5, this.y + Math.sin(angle) * this.size * 0.5);
+            ctx.lineTo(this.x + Math.cos(angle) * this.size * pulse, this.y + Math.sin(angle) * this.size * pulse);
+            ctx.stroke();
+        }
+        
+        // Blinking fuse
+        if (Math.floor(Date.now() / 200) % 2) {
+            ctx.fillStyle = '#FFFF00';
+            ctx.beginPath();
+            ctx.arc(this.x, this.y - this.size * 0.8, 2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+    
+    drawPiercingBullet() {
+        ctx.shadowColor = '#9966FF';
+        ctx.shadowBlur = 10;
+        
+        // Arrow shape
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.angle);
+        
+        // Arrow body
+        ctx.fillStyle = '#9966FF';
+        ctx.fillRect(-this.size, -this.size/3, this.size * 1.5, this.size * 2/3);
+        
+        // Arrow head
+        ctx.beginPath();
+        ctx.moveTo(this.size * 0.5, 0);
+        ctx.lineTo(this.size * -0.5, -this.size);
+        ctx.lineTo(this.size * -0.5, this.size);
+        ctx.closePath();
+        ctx.fill();
+        
+        // Energy trail
+        ctx.strokeStyle = '#BB88FF';
+        ctx.lineWidth = 3;
+        ctx.globalAlpha = 0.7;
+        ctx.beginPath();
+        ctx.moveTo(-this.size, 0);
+        ctx.lineTo(-this.size * 2, 0);
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+        
+        ctx.restore();
+    }
+    
+}
+
+// Wall, DestructibleWall, and Gate classes moved to src/game/obstacles/obstacles-bundle.js
+
+
+// PowerUp class moved to src/game/entities/entities-bundle.js
+
+// Particle, SmokeParticle, and Explosion classes moved to src/game/effects/effects-bundle.js
+
+// Mine class moved to src/game/entities/entities-bundle.js
+
+// Target class moved to src/game/entities/entities-bundle.js
+
+// Drone class moved to src/game/entities/entities-bundle.js
+
+// RingOfFire class moved to src/game/effects/effects-bundle.js
+
+
+function generateSafeItemPosition() {
+    let validPosition = false;
+    let x, y;
+    let attempts = 0;
+    
+    while (!validPosition && attempts < 100) {
+        x = Math.random() * (canvas.width - 100) + 50;
+        y = Math.random() * (canvas.height - 100) + 50;
+        validPosition = true;
+        
+        // Check not on walls
+        for (let wall of walls) {
+            if (x + 15 > wall.x && 
+                x - 15 < wall.x + wall.width &&
+                y + 15 > wall.y && 
+                y - 15 < wall.y + wall.height) {
                 validPosition = false;
                 break;
             }
         }
         
+        // Check not on water or wall tiles
+        if (validPosition) {
+            const tileX = Math.floor(x / TILE_SIZE);
+            const tileY = Math.floor(y / TILE_SIZE);
+            
+            // Check if this tile is an obstacle
+            const blockingTile = obstacleTiles.find(tile => 
+                tile.x === tileX && tile.y === tileY && 
+                (tile.type === 'water' || tile.type === 'wall')
+            );
+            
+            if (blockingTile) {
+                validPosition = false;
+            }
+        }
+        
+        attempts++;
+    }
+    
+    return validPosition ? { x, y } : { x: 100 + Math.random() * (canvas.width - 200), y: 100 + Math.random() * (canvas.height - 200) };
+}
+
+function generateSafeSpawnPosition() {
+    let validPosition = false;
+    let x, y;
+    let attempts = 0;
+    
+    while (!validPosition && attempts < 100) {
+        x = Math.random() * (canvas.width - 200) + 100;
+        y = Math.random() * (canvas.height - 200) + 100;
+        validPosition = true;
+        
         // Check not too close to walls
-        if (validPosition && walls && walls.length > 0) {
-            for (let wall of walls) {
-                if (wall && x + TANK_SIZE + 20 > wall.x && 
-                    x - TANK_SIZE - 20 < wall.x + wall.width &&
-                    y + TANK_SIZE + 20 > wall.y && 
-                    y - TANK_SIZE - 20 < wall.y + wall.height) {
-                    validPosition = false;
-                    break;
-                }
+        for (let wall of walls) {
+            if (x + TANK_SIZE + 20 > wall.x && 
+                x - TANK_SIZE - 20 < wall.x + wall.width &&
+                y + TANK_SIZE + 20 > wall.y && 
+                y - TANK_SIZE - 20 < wall.y + wall.height) {
+                validPosition = false;
+                break;
             }
         }
         
         // Check not on blocking terrain tiles (water and wall tiles)
-        if (validPosition && obstacleTiles && obstacleTiles.length > 0) {
-            // Check multiple points around the tank to ensure it doesn't overlap obstacles
-            const tankRadius = TANK_SIZE;
-            const checkPoints = [
-                { dx: 0, dy: 0 },           // Center
-                { dx: -tankRadius, dy: 0 },  // Left
-                { dx: tankRadius, dy: 0 },   // Right
-                { dx: 0, dy: -tankRadius },  // Top
-                { dx: 0, dy: tankRadius },   // Bottom
-                { dx: -tankRadius, dy: -tankRadius }, // Top-left
-                { dx: tankRadius, dy: -tankRadius },  // Top-right
-                { dx: -tankRadius, dy: tankRadius },  // Bottom-left
-                { dx: tankRadius, dy: tankRadius }    // Bottom-right
-            ];
+        if (validPosition) {
+            // Calculate the tile coordinates for the spawn position
+            const tileX = Math.floor(x / TILE_SIZE);
+            const tileY = Math.floor(y / TILE_SIZE);
             
-            for (let point of checkPoints) {
-                const checkX = Math.floor((x + point.dx) / TILE_SIZE);
-                const checkY = Math.floor((y + point.dy) / TILE_SIZE);
-                
-                // Check if this position has a blocking tile
-                for (let tile of obstacleTiles) {
-                    if (tile && tile.x === checkX && tile.y === checkY &&
-                        (tile.type === 'water' || tile.type === 'wall')) {
+            // Check a 2x2 area around the spawn position to ensure tank fully fits
+            for (let dx = -1; dx <= 1; dx++) {
+                for (let dy = -1; dy <= 1; dy++) {
+                    const checkX = tileX + dx;
+                    const checkY = tileY + dy;
+                    
+                    // Check if this tile is a blocking tile
+                    const blockingTile = obstacleTiles.find(tile => 
+                        tile.x === checkX && tile.y === checkY
+                    );
+                    
+                    if (blockingTile) {
                         validPosition = false;
-                        if (attempts < 5) { // Only log first few attempts
-                            console.log(`[SPAWN] Position ${x.toFixed(0)},${y.toFixed(0)} blocked by ${tile.type} at tile ${checkX},${checkY}`);
-                        }
                         break;
                     }
                 }
-                
                 if (!validPosition) break;
             }
         }
         
         // Check not too close to other tanks
-        if (validPosition && tanks && tanks.length > 0) {
+        if (validPosition) {
             for (let tank of tanks) {
-                if (tank && tank.alive) {
+                if (tank.alive) {
                     const distance = Math.sqrt((x - tank.x) ** 2 + (y - tank.y) ** 2);
-                    if (distance < 150) {  // Minimum distance between tanks
+                    if (distance < 200) {  // Increased minimum distance between tanks
                         validPosition = false;
                         break;
                     }
@@ -308,80 +803,24 @@ function generateSafeSpawnPosition() {
         attempts++;
     }
     
-    // If we still couldn't find a valid position after many attempts,
-    // try a few more times with more relaxed constraints
-    if (!validPosition) {
-        console.warn(`[SPAWN] Could not find valid spawn position after ${maxAttempts} attempts, trying fallback`);
-        
-        // Try 20 more times with just basic obstacle checking
-        for (let i = 0; i < 20; i++) {
-            x = Math.random() * (canvas.width - 200) + 100;
-            y = Math.random() * (canvas.height - 200) + 100;
-            
-            // Just check center position for obstacles
-            const tileX = Math.floor(x / TILE_SIZE);
-            const tileY = Math.floor(y / TILE_SIZE);
-            
-            let blocked = false;
-            for (let tile of obstacleTiles) {
-                if (tile && tile.x === tileX && tile.y === tileY &&
-                    (tile.type === 'water' || tile.type === 'wall')) {
-                    blocked = true;
-                    break;
-                }
-            }
-            
-            if (!blocked) {
-                console.log(`[SPAWN] Found fallback position at ${x.toFixed(0)},${y.toFixed(0)}`);
-                validPosition = true;
-                break;
-            }
-        }
-        
-        // Last resort - just use a random position
-        if (!validPosition) {
-            console.error(`[SPAWN] CRITICAL: Using random position, may be on obstacle!`);
-            x = Math.random() * (canvas.width - 200) + 100;
-            y = Math.random() * (canvas.height - 200) + 100;
-        }
-    }
-    
-    // Store this position as used
-    usedSpawnPositions.push({ x, y });
-    
-    console.log(`[SPAWN] Final position: ${x.toFixed(0)},${y.toFixed(0)} (valid: ${validPosition})`);
-    return { x, y };
+    return validPosition ? { x, y } : { x: 100 + Math.random() * (canvas.width - 200), y: 100 + Math.random() * (canvas.height - 200) };
 }
 
-// Function to reset spawn positions for a new round
-function resetSpawnPositions() {
-    usedSpawnPositions = [];
-}
 
 function generateMaze() {
     walls = [];
     gates = [];
 }
 
+
 function setMapSize(size) {
     mapSize = size;
     const dimensions = mapSizes[size];
-    // Only set canvas dimensions if canvas exists
-    if (canvas) {
-        canvas.width = dimensions.width;
-        canvas.height = dimensions.height;
-    }
+    canvas.width = dimensions.width;
+    canvas.height = dimensions.height;
 }
 
 // Score management functions moved to src/game/systems/ScoreManager.js
-
-// Helper function to generate random colors for explosions
-function getRandomColor() {
-    const r = Math.floor(Math.random() * 256);
-    const g = Math.floor(Math.random() * 256);
-    const b = Math.floor(Math.random() * 256);
-    return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
-}
 
 function generateRandomRGBColor() {
     const r = Math.floor(Math.random() * 256);
@@ -395,7 +834,7 @@ function updateCamera() {
     if (!camera.isZooming) return;
     
     const elapsed = Date.now() - camera.zoomStartTime;
-    const progress = Math.min(elapsed / (CONFIG.WINNER_ZOOM_TRANSITION_TIME || CONFIG.ZOOM_DURATION || 2000), 1.0);
+    const progress = Math.min(elapsed / CONFIG.WINNER_ZOOM_TRANSITION_TIME, 1.0);
     
     // Smooth easing function (ease-out)
     const easedProgress = 1 - Math.pow(1 - progress, 3);
@@ -430,39 +869,18 @@ function resetCamera() {
     camera.zoomStartTime = 0;
 }
 
-// Initialize when DOM is ready
-if (typeof document !== 'undefined') {
-    document.addEventListener('DOMContentLoaded', () => {
-        initializeGlobals();
-    });
-}
-
 
 // selectMapSize function moved to menu.js
 
 // startGame function moved to menu.js
 
 function init() {
-    // Check if multiplayer engine is handling initialization
-    const isMultiplayer = window.multiplayerEngine && window.multiplayerEngine.isMultiplayer;
-    
-    if (!isMultiplayer) {
-        // Only reset arrays if not in multiplayer mode
-        tanks = [];
-        bullets = [];
-        particles = [];
-        powerUps = [];
-        drones = [];
-        targets = [];
-    } else {
-        // In multiplayer, just clear projectiles and effects
-        bullets = [];
-        particles = [];
-        powerUps = [];
-        drones = [];
-        targets = [];
-        // Keep tanks from multiplayer initialization
-    }
+    tanks = [];
+    bullets = [];
+    particles = [];
+    powerUps = [];
+    drones = [];
+    targets = [];
     
     // Set grace period (3 seconds at 60fps)
     graceTimer = 180;
@@ -474,41 +892,34 @@ function init() {
     aiSystem.initialize(CONFIG, gameState);
     inputHandler.initialize(CONFIG);
     
-    // Set the shared remote input handler (but not in multiplayer mode)
-    if (!isMultiplayer && inputHandler && inputHandler.remoteHandler !== undefined) {
+    // Set the shared remote input handler
+    if (inputHandler.remoteHandler) {
         // Replace with our global instance that can send color updates
         inputHandler.remoteHandler = remoteInputHandler;
     }
-    if (!isMultiplayer && remoteInputHandler) {
-        remoteInputHandler.connect();
-    }
-    
-    // Reset spawn positions for the new game
-    resetSpawnPositions();
+    remoteInputHandler.connect();
     
     // Generate terrain for battlefield
     generateTerrainTiles();
     
-    // Only create default tanks if not in multiplayer mode
-    if (!isMultiplayer) {
-        // Generate random spawn position for player 1
-        const player1Pos = generateSafeSpawnPosition();
-        const player1Tank = new Tank(player1Pos.x, player1Pos.y, PLAYER1_COLOR, {
-            up: 'ArrowUp',
-            down: 'ArrowDown',
-            left: 'ArrowLeft',
-            right: 'ArrowRight',
-            shoot: 'm'
-        }, 1, PLAYER1_SECONDARY_COLOR);
-        tanks.push(player1Tank);
-        
-        // Send player 1 color to controller
-        if (remoteInputHandler) {
-            remoteInputHandler.sendPlayerColorUpdate(1, PLAYER1_COLOR);
-        }
+    
+    // Generate random spawn position for player 1
+    const player1Pos = generateSafeSpawnPosition();
+    const player1Tank = new Tank(player1Pos.x, player1Pos.y, PLAYER1_COLOR, {
+        up: 'ArrowUp',
+        down: 'ArrowDown',
+        left: 'ArrowLeft',
+        right: 'ArrowRight',
+        shoot: 'm'
+    }, 1, PLAYER1_SECONDARY_COLOR);
+    tanks.push(player1Tank);
+    
+    // Send player 1 color to controller
+    if (remoteInputHandler) {
+        remoteInputHandler.sendPlayerColorUpdate(1, PLAYER1_COLOR);
     }
     
-    if (gameMode === 0 && !isMultiplayer) {
+    if (gameMode === 0) {
         // Training mode - only player 1, no AI or other players
         // Add targets for practice
         
@@ -553,8 +964,8 @@ function init() {
             }
             targets.push(new Target(x, y, 'moving'));
         }
-    } else if (gameMode === 1 && !isMultiplayer) {
-        // Add AI tanks in single player mode (not in multiplayer)
+    } else if (gameMode === 1) {
+        // Add AI tanks in single player mode
         const aiColors = ['#ff9800', '#9c27b0', '#f44336', '#e91e63', '#2196f3', '#ff5722', '#795548'];
         
         for (let i = 0; i < CONFIG.AI_TANK_COUNT; i++) {
@@ -563,7 +974,7 @@ function init() {
             aiTank.isAI = true;
             tanks.push(aiTank);
         }
-    } else if (!isMultiplayer) {
+    } else {
         const player2Pos = generateSafeSpawnPosition();
         const player2Tank = new Tank(player2Pos.x, player2Pos.y, PLAYER2_COLOR, {
             up: 'e',
@@ -587,9 +998,9 @@ function init() {
     
     
     // Create scoreboard after tanks are initialized
-    // createScoreBoard(); // Commenting out - causing issues in multiplayer
+    createScoreBoard();
     
-    legacyGameLoop();
+    gameLoop();
 }
 
 function update() {
@@ -703,23 +1114,8 @@ function update() {
                     for (let tank of tanks) {
                         try {
                             if (bullet.checkTankCollision(tank)) {
-                                // Check if tank has energy shield
-                                if (tank.hasEnergyShield) {
-                                    // Shield blocks the bullet
-                                    // Create shield impact effect
-                                    for (let i = 0; i < 8; i++) {
-                                        particles.push(new Particle(
-                                            bullet.x + (Math.random() - 0.5) * 10,
-                                            bullet.y + (Math.random() - 0.5) * 10,
-                                            '#00DDFF',
-                                            15
-                                        ));
-                                    }
-                                    return false; // Destroy bullet but not tank
-                                } else {
-                                    tank.destroy(bullet.owner);
-                                    return false;
-                                }
+                                tank.destroy(bullet.owner);
+                                return false;
                             }
                         } catch (error) {
                             console.error('[UPDATE ERROR] Bullet-tank collision check failed:', error);
@@ -840,9 +1236,6 @@ function resetRound() {
     
     // Set grace period (3 seconds at 60fps)
     graceTimer = 180;
-    
-    // Reset spawn positions for the new round
-    resetSpawnPositions();
     
     // Regenerate terrain for new round
     generateTerrainTiles();
@@ -1108,42 +1501,31 @@ function highlightTargetsInRange(tank) {
     });
 }
 
-function legacyGameLoop() {
+function gameLoop() {
     // Use the new modular game loop if available, otherwise fallback to legacy
     if (typeof window.gameLoop !== 'undefined' && window.gameLoop.isRunning) {
         // The modular system handles its own loop
-        console.log('Modular game loop is running, skipping legacy loop');
         return;
     }
     
     try {
-        // Check both local and global gameRunning variables
-        if (!gameRunning && !window.gameRunning) {
-            console.log('Game not running, stopping loop. Local:', gameRunning, 'Global:', window.gameRunning);
-            return;
-        }
+        if (!gameRunning) return;
         
         update();
         draw();
-        requestAnimationFrame(legacyGameLoop);
+        requestAnimationFrame(gameLoop);
     } catch (error) {
         console.error('[GAME LOOP ERROR] Critical error in main game loop:', error);
         console.error('Stack trace:', error.stack);
         
         // Try to continue the game loop to prevent complete freeze
         try {
-            requestAnimationFrame(legacyGameLoop);
+            requestAnimationFrame(gameLoop);
         } catch (retryError) {
             console.error('[GAME LOOP ERROR] Failed to restart game loop:', retryError);
         }
     }
 }
-
-// Make it available globally
-window.legacyGameLoop = legacyGameLoop;
-
-// gameLoop is defined in core-bundle.js as the modular game loop
-// Use legacyGameLoop for the old implementation
 
 
 // openSettings function moved to menu.js

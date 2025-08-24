@@ -8,6 +8,7 @@ class TerrainGenerator {
     }
     
     generateTerrainTiles() {
+        console.log('[TERRAIN] Starting terrain generation');
         // Clear existing terrain and obstacles
         this.terrainTiles = [];
         this.terrainFeatures = [];
@@ -34,6 +35,30 @@ class TerrainGenerator {
                     baseColor: '#7A8B5D',
                     variation: Math.random() * 0.2 - 0.1 // Color variation
                 });
+            }
+        }
+        
+        // Generate bush/camouflage patches
+        const bushPatchCount = Math.floor(Math.random() * 2) + 1; // 1-2 bush patches
+        for (let i = 0; i < bushPatchCount; i++) {
+            const bushSize = Math.floor(Math.random() * 2) + 2; // 2x2 to 3x3 bush patches
+            const centerX = Math.floor(Math.random() * (gridWidth - bushSize));
+            const centerY = Math.floor(Math.random() * (gridHeight - bushSize));
+            
+            // Create main bush patch
+            for (let x = 0; x < bushSize; x++) {
+                for (let y = 0; y < bushSize; y++) {
+                    const tileX = centerX + x;
+                    const tileY = centerY + y;
+                    
+                    if (tileX < gridWidth && tileY < gridHeight) {
+                        const tileIndex = tileY * gridWidth + tileX;
+                        if (tileIndex < this.terrainTiles.length) {
+                            this.terrainTiles[tileIndex].type = 'bush';
+                            this.terrainTiles[tileIndex].baseColor = '#4A6741';
+                        }
+                    }
+                }
             }
         }
         
@@ -133,10 +158,29 @@ class TerrainGenerator {
         // Generate obstacles (walls and water)
         this.generateObstacles();
         
+        console.log(`[TERRAIN] Generated ${this.terrainTiles.length} terrain tiles, ${this.obstacleTiles.length} obstacle tiles`);
+        
         // Update global variables for backward compatibility
-        if (typeof terrainTiles !== 'undefined') terrainTiles = this.terrainTiles;
-        if (typeof terrainFeatures !== 'undefined') terrainFeatures = this.terrainFeatures;
-        if (typeof obstacleTiles !== 'undefined') obstacleTiles = this.obstacleTiles;
+        if (typeof terrainTiles !== 'undefined') {
+            terrainTiles.length = 0;
+            for (let tile of this.terrainTiles) {
+                terrainTiles.push(tile);
+            }
+        }
+        if (typeof terrainFeatures !== 'undefined') {
+            terrainFeatures.length = 0;
+            for (let feature of this.terrainFeatures) {
+                terrainFeatures.push(feature);
+            }
+        }
+        if (typeof obstacleTiles !== 'undefined') {
+            obstacleTiles.length = 0;
+            for (let tile of this.obstacleTiles) {
+                obstacleTiles.push(tile);
+            }
+        }
+        
+        console.log(`[TERRAIN] Updated globals: terrainTiles=${terrainTiles.length}, obstacleTiles=${obstacleTiles.length}`);
     }
     
     generateObstacles() {
@@ -328,7 +372,12 @@ class TerrainGenerator {
         
         // Update global obstacleTiles for backward compatibility
         if (typeof obstacleTiles !== 'undefined') {
-            obstacleTiles = this.obstacleTiles;
+            // Don't clear here, just add new obstacles
+            for (let tile of this.obstacleTiles) {
+                if (!obstacleTiles.find(t => t.x === tile.x && t.y === tile.y)) {
+                    obstacleTiles.push(tile);
+                }
+            }
         }
     }
     
@@ -351,6 +400,7 @@ window.terrainGenerator = new TerrainGenerator();
 // Backward compatibility wrapper functions
 window.generateTerrainTiles = function() {
     window.terrainGenerator.generateTerrainTiles();
+    // The globals are already updated in generateTerrainTiles method
 };
 
 window.generateObstacles = function() {

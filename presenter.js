@@ -1,14 +1,39 @@
 // Presenter (TV Display) JavaScript
 let ws = null;
+let reconnectTimeout = null;
 let currentRoom = null;
-let gameState = null;
-let canvas = null;
-let ctx = null;
-let gameRunning = false;
+let presenterGameState = null;
+// canvas, ctx, and gameRunning are declared globally in game.js
+// let canvas = null;
+// let ctx = null;
+// let gameRunning = false;
 
-// Get room code from URL if provided
+// Load terrain images
+let grassImage = new Image();
+grassImage.src = ASSETS.images.grass;
+let grassLoaded = false;
+grassImage.onload = () => { grassLoaded = true; };
+
+let wallImage = new Image();
+wallImage.src = ASSETS.images.wall;
+let wallLoaded = false;
+wallImage.onload = () => { wallLoaded = true; };
+
+let waterImage = new Image();
+waterImage.src = ASSETS.images.water;
+let waterLoaded = false;
+waterImage.onload = () => { 
+    waterLoaded = true; 
+};
+
+let sandImage = new Image();
+sandImage.src = ASSETS.images.sand;
+let sandLoaded = false;
+sandImage.onload = () => { sandLoaded = true; };
+
+// Get room code from URL if provided (support both 'room' and 'roomcode' parameters)
 const urlParams = new URLSearchParams(window.location.search);
-const roomCodeFromUrl = urlParams.get('room');
+const roomCodeFromUrl = urlParams.get('roomcode') || urlParams.get('room');
 
 // WebSocket connection
 function connectWebSocket() {
@@ -19,7 +44,6 @@ function connectWebSocket() {
     ws = new WebSocket(wsUrl);
     
     ws.onopen = () => {
-        console.log('Connected to server');
         
         // Auto-connect if room code in URL
         if (roomCodeFromUrl) {
@@ -34,9 +58,12 @@ function connectWebSocket() {
     };
     
     ws.onclose = () => {
-        console.log('Disconnected from server');
         showError('Connection lost. Reconnecting...');
-        setTimeout(connectWebSocket, 2000);
+        // Clear any existing timeout before setting a new one
+        if (reconnectTimeout) {
+            clearTimeout(reconnectTimeout);
+        }
+        reconnectTimeout = setTimeout(connectWebSocket, 2000);
     };
     
     ws.onerror = (error) => {
@@ -87,6 +114,26 @@ function connectToRoom() {
 // Handle successful presenter registration
 function handlePresenterRegistered(data) {
     currentRoom = data.room;
+    
+    // Update URL with room code
+    const url = new URL(window.location);
+    url.searchParams.set('roomcode', currentRoom.id);
+    window.history.replaceState({}, '', url);
+    
+    // Initialize multiplayer engine for presenter
+    if (window.multiplayerEngine) {
+        window.multiplayerEngine.connectWebSocket(ws, 'presenter');
+        
+        // Initialize multiplayer game with room data
+        if (currentRoom.state === 'IN_GAME') {
+            const settings = {
+                roomCode: currentRoom.id,
+                players: currentRoom.players,
+                gameSettings: currentRoom.gameSettings
+            };
+            window.multiplayerEngine.initializeMultiplayerGame(settings);
+        }
+    }
     
     // Hide connect screen
     document.getElementById('connectScreen').style.display = 'none';
@@ -185,9 +232,9 @@ function updatePlayersList() {
         name.className = 'player-name';
         name.textContent = player.name;
         
-        const score = document.createElement('div');
-        score.className = 'player-score';
-        score.textContent = player.score || 0;
+        const kills = document.createElement('div');
+        kills.className = 'player-kills';
+        kills.innerHTML = `<span style="color: #ff5722;">⚔️</span> ${player.kills || 0}`;
         
         const status = document.createElement('div');
         status.className = `player-status ${player.connected ? 'connected' : 'disconnected'}`;
@@ -195,7 +242,7 @@ function updatePlayersList() {
         
         playerDiv.appendChild(colorIndicator);
         playerDiv.appendChild(name);
-        playerDiv.appendChild(score);
+        playerDiv.appendChild(kills);
         playerDiv.appendChild(status);
         container.appendChild(playerDiv);
     });
@@ -204,6 +251,17 @@ function updatePlayersList() {
 // Handle game started
 function handleGameStarted(data) {
     currentRoom = data.room;
+    
+    // Initialize multiplayer engine with room data
+    if (window.multiplayerEngine) {
+        const settings = {
+            roomCode: currentRoom.id,
+            players: currentRoom.players,
+            gameSettings: currentRoom.gameSettings
+        };
+        window.multiplayerEngine.initializeMultiplayerGame(settings);
+    }
+    
     hideWaitingScreen();
     startGame();
 }
@@ -227,154 +285,44 @@ function startGame() {
     canvas.width = mapSizes[mapSize].width;
     canvas.height = mapSizes[mapSize].height;
     
-    // Initialize game state
-    gameState = {
-        tanks: [],
-        bullets: [],
-        walls: [],
-        powerUps: [],
-        particles: [],
-        explosions: []
-    };
+    // Make canvas and context available globally for the game engine
+    window.canvas = canvas;
+    window.ctx = ctx;
     
-    // Generate map
-    generateMap();
+    // Initialize core game systems now that canvas is available
+    if (typeof window.initializeCoreGameSystems === 'function') {
+        window.initializeCoreGameSystems();
+    }
     
-    // Start game loop
-    gameRunning = true;
-    gameLoop();
+    // Ensure Tank class is loaded before starting
+    function tryStartGame() {
+        if (!window.Tank) {
+            console.log('Waiting for Tank class to load...');
+            setTimeout(tryStartGame, 100);
+            return;
+        }
+        
+        // Start the multiplayer game using the real game engine
+        if (window.multiplayerEngine) {
+            gameRunning = window.multiplayerEngine.startGame();
+        } else {
+            console.error('Multiplayer engine not available');
+        }
+    }
+    
+    tryStartGame();
     
     // Request fullscreen
     requestFullscreen();
 }
 
-// Generate map (simplified version)
-function generateMap() {
-    // This is a simplified map generation
-    // In production, this would sync with the actual game server
-    
-    // Add some walls
-    const wallCount = 10 + Math.floor(Math.random() * 10);
-    for (let i = 0; i < wallCount; i++) {
-        gameState.walls.push({
-            x: Math.random() * canvas.width,
-            y: Math.random() * canvas.height,
-            width: 50 + Math.random() * 100,
-            height: 20 + Math.random() * 30
-        });
-    }
-}
-
-// Game loop
-function gameLoop() {
-    if (!gameRunning) return;
-    
-    // Clear canvas
-    ctx.fillStyle = '#1a1a1a';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    
-    // Draw walls
-    ctx.fillStyle = '#444';
-    gameState.walls.forEach(wall => {
-        ctx.fillRect(wall.x, wall.y, wall.width, wall.height);
-    });
-    
-    // Draw tanks
-    gameState.tanks.forEach(tank => {
-        drawTank(tank);
-    });
-    
-    // Draw bullets
-    ctx.fillStyle = '#ffff00';
-    gameState.bullets.forEach(bullet => {
-        ctx.beginPath();
-        ctx.arc(bullet.x, bullet.y, 5, 0, Math.PI * 2);
-        ctx.fill();
-    });
-    
-    // Draw power-ups
-    gameState.powerUps.forEach(powerUp => {
-        drawPowerUp(powerUp);
-    });
-    
-    // Draw particles
-    gameState.particles.forEach(particle => {
-        ctx.fillStyle = particle.color || '#ff6600';
-        ctx.globalAlpha = particle.alpha || 1;
-        ctx.fillRect(particle.x, particle.y, particle.size || 2, particle.size || 2);
-        ctx.globalAlpha = 1;
-    });
-    
-    requestAnimationFrame(gameLoop);
-}
-
-// Draw tank
-function drawTank(tank) {
-    ctx.save();
-    ctx.translate(tank.x, tank.y);
-    ctx.rotate(tank.angle);
-    
-    // Tank body
-    ctx.fillStyle = tank.color;
-    ctx.fillRect(-20, -15, 40, 30);
-    
-    // Tank barrel
-    ctx.fillStyle = '#333';
-    ctx.fillRect(0, -3, 30, 6);
-    
-    ctx.restore();
-    
-    // Draw player name
-    ctx.fillStyle = 'white';
-    ctx.font = '12px Arial';
-    ctx.textAlign = 'center';
-    ctx.fillText(tank.playerName || 'Player', tank.x, tank.y - 25);
-}
-
-// Draw power-up
-function drawPowerUp(powerUp) {
-    ctx.fillStyle = '#00ff00';
-    ctx.strokeStyle = '#00ff00';
-    ctx.lineWidth = 2;
-    
-    // Draw star shape
-    ctx.beginPath();
-    for (let i = 0; i < 5; i++) {
-        const angle = (i * Math.PI * 2) / 5 - Math.PI / 2;
-        const x = powerUp.x + Math.cos(angle) * 15;
-        const y = powerUp.y + Math.sin(angle) * 15;
-        
-        if (i === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-    }
-    ctx.closePath();
-    ctx.stroke();
-}
+// Note: Map generation and game loop are now handled by the real game engine
 
 // Handle player input
 function handlePlayerInput(data) {
-    // This would normally update the game state
-    // For now, we'll just log it
-    console.log('Player input:', data.playerId, data.input);
-    
-    // Find the tank for this player
-    const tank = gameState.tanks.find(t => t.playerId === data.playerId);
-    if (tank) {
-        // Update tank based on input
-        if (data.input.forward) tank.y -= 2;
-        if (data.input.backward) tank.y += 2;
-        if (data.input.left) tank.angle -= 0.1;
-        if (data.input.right) tank.angle += 0.1;
-        
-        if (data.input.shoot) {
-            // Create bullet
-            gameState.bullets.push({
-                x: tank.x + Math.cos(tank.angle) * 30,
-                y: tank.y + Math.sin(tank.angle) * 30,
-                vx: Math.cos(tank.angle) * 5,
-                vy: Math.sin(tank.angle) * 5
-            });
-        }
+    // Forward input to multiplayer engine
+    if (window.multiplayerEngine) {
+        window.multiplayerEngine.handlePlayerInput(data.playerId, data.input);
     }
 }
 
@@ -428,6 +376,13 @@ function showConnectError(message) {
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
+    
+    // Pre-fill room code if available
+    if (roomCodeFromUrl) {
+        const roomCodeInput = document.getElementById('roomCodeInput');
+        roomCodeInput.value = roomCodeFromUrl.toUpperCase();
+    }
+    
     connectWebSocket();
     
     // Auto-uppercase room code input

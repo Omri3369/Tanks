@@ -33,8 +33,24 @@ const DEFAULT_COLORS = {
 
 // Terrain Constants
 const TERRAIN = {
-    TILE_SIZE: 64
+    TILE_SIZE: 64  // Original tile size
 };
+
+// Global constants for backward compatibility
+const TILE_SIZE = 64;
+const TANK_SIZE = 30;
+const BULLET_SIZE = 5;
+const BULLET_SPEED = 10;
+const BULLET_LIFETIME = 100;
+// const TANK_SPEED = 3; // Now using CONFIG.TANK_SPEED
+// const TANK_TURN_SPEED = 0.05; // Now using CONFIG.TANK_TURN_SPEED
+const POWERUP_SIZE = 20;
+
+// Player colors
+let PLAYER1_COLOR = '#4CAF50';
+let PLAYER2_COLOR = '#ff9800';
+let PLAYER1_SECONDARY_COLOR = '#2E7D32';
+let PLAYER2_SECONDARY_COLOR = '#E65100';
 
 // Export everything for use in game.js
 const GAME_CONSTANTS = {

@@ -23,6 +23,7 @@ let renderer = null;
 let gameInitializer = null;
 let roundManager = null;
 let settingsManager = null;
+// aiSystem is already declared in game.js
 
 // Initialize core game systems
 function initializeCoreGameSystems() {
@@ -44,6 +45,12 @@ function initializeCoreGameSystems() {
     // Create game initializer
     gameInitializer = new GameInitializer(gameState, roundManager, scoreManager);
     
+    // Create AI system (only if not already created)
+    if (typeof AIBehavior !== 'undefined' && !window.aiSystem) {
+        window.aiSystem = new AIBehavior();
+        window.aiSystem.initialize(CONFIG, gameState);
+    }
+    
     // Expose globally for backward compatibility
     window.gameState = gameState;
     window.gameLoop = gameLoop;
@@ -51,6 +58,7 @@ function initializeCoreGameSystems() {
     window.gameInitializer = gameInitializer;
     window.roundManager = roundManager;
     window.settingsManager = settingsManager;
+    window.aiSystem = aiSystem;
     
     // Map legacy global variables to new system
     setupLegacyGlobalMappings();
@@ -189,15 +197,9 @@ function setupLegacyGlobalMappings() {
     }
 }
 
-// Auto-initialize when DOM is ready
-if (typeof document !== 'undefined') {
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initializeCoreGameSystems);
-    } else {
-        // DOM already ready
-        setTimeout(initializeCoreGameSystems, 0);
-    }
-}
+// Manual initialization only - called by presenter.js after canvas is created
+// Auto-initialization disabled for multiplayer presenter mode
+window.initializeCoreGameSystems = initializeCoreGameSystems;
 
 // Export for module systems
 if (typeof module !== 'undefined' && module.exports) {

@@ -1,5 +1,6 @@
-// Room-based Controller JavaScript
+// Room-based Controller JavaScript with Enhanced Features
 let ws = null;
+let reconnectTimeout = null;
 let playerId = null;
 let playerName = null;
 let playerColor = '#4CAF50';
@@ -7,8 +8,35 @@ let roomCode = null;
 let connected = false;
 let gameActive = false;
 
+// Controller settings
+let settings = {
+    sensitivity: 1.0,
+    deadZone: 0.15,
+    hapticEnabled: true,
+    autoFire: false,
+    sendRate: 16 // ms between input sends (60fps)
+};
+
+// Tank state tracking
+let tankState = {
+    kills: 0,
+    wins: 0,
+    specialAmmo: 0,
+    alive: true
+};
+
 // Input state
 let inputState = {
+    forward: false,
+    backward: false,
+    left: false,
+    right: false,
+    shoot: false,
+    special: false
+};
+
+// Previous input state for change detection
+let previousInputState = {
     forward: false,
     backward: false,
     left: false,
@@ -22,10 +50,58 @@ let joystickActive = false;
 let joystickCenter = { x: 0, y: 0 };
 let currentTouch = null;
 
+// Performance optimization
+let animationFrameId = null;
+let lastSendTime = 0;
+const SEND_RATE = 16; // ms between sends (60fps max)
+const THROTTLE_RATE = 50; // ms minimum between sends
+
+// Auto-fire
+let autoFireInterval = null;
+
 // Get parameters from URL
 const urlParams = new URLSearchParams(window.location.search);
 const roomCodeFromUrl = urlParams.get('room');
 const playerIdFromUrl = urlParams.get('player');
+
+// Enhanced haptic feedback
+function vibrate(pattern = 'short') {
+    if (!settings.hapticEnabled || !navigator.vibrate) return;
+    
+    const patterns = {
+        short: 20,
+        medium: 50,
+        long: 100,
+        double: [20, 20, 20],
+        hit: [100, 30, 100],
+        powerup: [30, 30, 30, 30, 30],
+        damage: [200],
+        destroy: [50, 50, 150, 50, 300],
+        connect: 50,
+        shoot: 25,
+        special: 75,
+        win: [100, 50, 100, 50, 200, 100, 300] // Victory pattern
+    };
+    
+    navigator.vibrate(patterns[pattern] || patterns.short);
+}
+
+// Load settings from localStorage
+function loadSettings() {
+    const saved = localStorage.getItem('controllerSettings');
+    if (saved) {
+        try {
+            settings = { ...settings, ...JSON.parse(saved) };
+        } catch (e) {
+            console.error('Failed to load settings:', e);
+        }
+    }
+}
+
+// Save settings to localStorage
+function saveSettings() {
+    localStorage.setItem('controllerSettings', JSON.stringify(settings));
+}
 
 // WebSocket connection
 function connectWebSocket() {
@@ -48,7 +124,11 @@ function connectWebSocket() {
     ws.onclose = () => {
         console.log('Disconnected from server');
         updateConnectionStatus(false);
-        setTimeout(connectWebSocket, 2000);
+        // Clear any existing timeout before setting a new one
+        if (reconnectTimeout) {
+            clearTimeout(reconnectTimeout);
+        }
+        reconnectTimeout = setTimeout(connectWebSocket, 2000);
     };
     
     ws.onerror = (error) => {
@@ -59,6 +139,7 @@ function connectWebSocket() {
 
 // Handle messages from server
 function handleServerMessage(data) {
+    console.log('Received message:', data.type, data);
     switch (data.type) {
         case 'JOINED_ROOM':
             handleJoinedRoom(data);
@@ -77,6 +158,23 @@ function handleServerMessage(data) {
             break;
         case 'GAME_ENDED':
             handleGameEnded(data);
+            break;
+        case 'ROUND_END':
+            handleRoundEnd(data);
+            break;
+        case 'TANK_HIT':
+            vibrate('hit');
+            break;
+        case 'TANK_DESTROYED':
+            vibrate('destroy');
+            tankState.alive = false;
+            updateTankStateDisplay();
+            break;
+        case 'POWERUP_COLLECTED':
+            vibrate('powerup');
+            break;
+        case 'TOOK_DAMAGE':
+            vibrate('damage');
             break;
     }
 }
@@ -109,8 +207,16 @@ function connectToRoom() {
 
 // Handle successful room join
 function handleJoinedRoom(data) {
+    console.log('Joined room, data:', data);
+    console.log('Room state:', data.room ? data.room.state : 'no room data');
+    
     playerId = data.playerId;
     playerColor = data.player.color;
+    
+    // Initialize multiplayer engine for controller
+    if (window.multiplayerEngine) {
+        window.multiplayerEngine.connectWebSocket(ws, 'controller');
+    }
     
     // Hide connect screen and show controller
     document.getElementById('connectScreen').style.display = 'none';
@@ -120,10 +226,20 @@ function handleJoinedRoom(data) {
     document.getElementById('playerName').textContent = playerName;
     document.getElementById('playerColor').style.backgroundColor = playerColor;
     
-    // Enable haptic feedback if available
-    if (navigator.vibrate) {
-        navigator.vibrate(50);
+    // Check if game is already in progress
+    if (data.room && data.room.state === 'IN_GAME') {
+        console.log('Game already in progress, activating controls');
+        handleGameStarted(data);
+    } else {
+        console.log('Game not started, showing waiting state');
+        // Show waiting state
+        document.getElementById('gameMessage').textContent = 'Waiting for game to start...';
+        document.getElementById('waitingMessage').style.display = 'block';
+        gameActive = false;
     }
+    
+    // Enable haptic feedback if available
+    vibrate('connect');
 }
 
 // Update room state
@@ -140,19 +256,27 @@ function updateRoomState(room) {
         document.getElementById('gameMessage').textContent = 'Waiting for game to start...';
         document.getElementById('waitingMessage').style.display = 'block';
         gameActive = false;
+    } else if (room.state === 'IN_GAME') {
+        document.getElementById('gameMessage').textContent = 'Game Active!';
+        document.getElementById('waitingMessage').style.display = 'none';
+        gameActive = true;
     }
 }
 
 // Handle game started
 function handleGameStarted(data) {
     gameActive = true;
+    tankState.alive = true;
     document.getElementById('gameMessage').textContent = 'Game Active!';
     document.getElementById('waitingMessage').style.display = 'none';
     
-    // Haptic feedback
-    if (navigator.vibrate) {
-        navigator.vibrate([100, 50, 100]);
+    // Start auto-fire if enabled
+    if (settings.autoFire) {
+        startAutoFire();
     }
+    
+    // Haptic feedback
+    vibrate('double');
 }
 
 // Update game state
@@ -160,6 +284,7 @@ function updateGameState(gameState) {
     if (gameState.scores) {
         const playerScore = gameState.scores[playerId] || 0;
         document.getElementById('gameScore').textContent = `Score: ${playerScore}`;
+        tankState.kills = playerScore;
     }
     
     if (gameState.roundNumber) {
@@ -171,26 +296,149 @@ function updateGameState(gameState) {
         const seconds = gameState.timeRemaining % 60;
         document.getElementById('gameTimer').textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
     }
+    
+    // Update tank-specific state if available
+    if (gameState.tanks) {
+        const ourTank = gameState.tanks.find(t => t.id === playerId);
+        if (ourTank) {
+            tankState.specialAmmo = ourTank.specialAmmo || 0;
+            tankState.alive = ourTank.alive !== false;
+            updateTankStateDisplay();
+        }
+    }
+}
+
+// Update tank state display
+function updateTankStateDisplay() {
+    // Update alive/eliminated status
+    const waitingMessage = document.getElementById('waitingMessage');
+    if (!tankState.alive && gameActive) {
+        if (waitingMessage) {
+            waitingMessage.style.display = 'block';
+            waitingMessage.textContent = 'ELIMINATED - Waiting for next round...';
+        }
+    }
+    
+    // Update special ammo indicator if we add it to the UI
+    // This can be expanded later
 }
 
 // Handle game ended
 function handleGameEnded(data) {
     gameActive = false;
+    tankState.alive = false;
     document.getElementById('gameMessage').textContent = 'Game Over!';
     document.getElementById('waitingMessage').style.display = 'block';
+    
+    // Stop auto-fire
+    stopAutoFire();
     
     // Reset input state
     resetInputState();
 }
 
-// Input handling
-function sendInput() {
+// Handle round end (death/respawn)
+function handleRoundEnd(data) {
+    console.log('Round ended:', data);
+    
+    // Show winner message
+    if (data.winner) {
+        const winnerMessage = data.winner.id === playerId ? 
+            'You Win This Round!' : 
+            `${data.winner.name} Wins!`;
+        document.getElementById('gameMessage').textContent = winnerMessage;
+        
+        // Special vibration for winner
+        if (data.winner.id === playerId) {
+            vibrate('win');
+        }
+    } else {
+        document.getElementById('gameMessage').textContent = 'Round Draw!';
+    }
+    
+    // Show message temporarily
+    document.getElementById('waitingMessage').style.display = 'block';
+    
+    // Hide message after delay - game will continue
+    setTimeout(() => {
+        document.getElementById('waitingMessage').style.display = 'none';
+        document.getElementById('gameMessage').textContent = '';
+        
+        // Reset tank state for new round
+        tankState.alive = true;
+        tankState.health = 100;
+        updateTankStateDisplay();
+    }, 2500);
+}
+
+// Check if input has changed
+function hasInputChanged() {
+    return Object.keys(inputState).some(key => 
+        inputState[key] !== previousInputState[key]
+    );
+}
+
+// Input handling with change detection and throttling
+function sendInput(force = false) {
     if (!connected || !gameActive || !playerId) return;
     
-    ws.send(JSON.stringify({
-        type: 'PLAYER_INPUT',
-        input: { ...inputState }
-    }));
+    const now = Date.now();
+    const timeSinceLastSend = now - lastSendTime;
+    
+    // Only send if input changed or forced, and throttle rate allows
+    if ((force || hasInputChanged()) && timeSinceLastSend >= THROTTLE_RATE) {
+        ws.send(JSON.stringify({
+            type: 'PLAYER_INPUT',
+            input: { ...inputState }
+        }));
+        
+        // Update previous state and last send time
+        previousInputState = { ...inputState };
+        lastSendTime = now;
+    }
+}
+
+// Optimized input loop using requestAnimationFrame
+function startInputLoop() {
+    function loop() {
+        if (gameActive) {
+            sendInput();
+        }
+        animationFrameId = requestAnimationFrame(loop);
+    }
+    
+    // Start the loop if not already running
+    if (!animationFrameId) {
+        loop();
+    }
+}
+
+// Stop the input loop
+function stopInputLoop() {
+    if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+        animationFrameId = null;
+    }
+}
+
+// Auto-fire management
+function startAutoFire() {
+    if (autoFireInterval) return;
+    
+    autoFireInterval = setInterval(() => {
+        inputState.shoot = true;
+        setTimeout(() => {
+            inputState.shoot = false;
+        }, 50);
+    }, 200); // Fire every 200ms
+}
+
+function stopAutoFire() {
+    if (autoFireInterval) {
+        clearInterval(autoFireInterval);
+        autoFireInterval = null;
+    }
+    inputState.shoot = false;
 }
 
 function resetInputState() {
@@ -202,7 +450,8 @@ function resetInputState() {
         shoot: false,
         special: false
     };
-    sendInput();
+    // Force send the reset state
+    sendInput(true);
 }
 
 // Joystick handling
@@ -278,6 +527,9 @@ function updateJoystick(clientX, clientY) {
     const distance = Math.sqrt(dx * dx + dy * dy);
     const maxDistance = 45; // Maximum knob distance from center
     
+    // Apply sensitivity
+    const sensitivityMultiplier = settings.sensitivity;
+    
     // Limit movement to circle
     let knobX = dx;
     let knobY = dy;
@@ -290,15 +542,26 @@ function updateJoystick(clientX, clientY) {
     // Update knob position
     joystickKnob.style.transform = `translate(calc(-50% + ${knobX}px), calc(-50% + ${knobY}px))`;
     
-    // Convert to input state
-    const threshold = 15;
+    // Apply dead zone and sensitivity
+    const normalizedDistance = distance / maxDistance;
+    const threshold = settings.deadZone * maxDistance;
     
-    inputState.forward = knobY < -threshold;
-    inputState.backward = knobY > threshold;
-    inputState.left = knobX < -threshold;
-    inputState.right = knobX > threshold;
-    
-    sendInput();
+    if (normalizedDistance > settings.deadZone) {
+        // Apply sensitivity to the input
+        const adjustedX = knobX * sensitivityMultiplier;
+        const adjustedY = knobY * sensitivityMultiplier;
+        
+        inputState.forward = adjustedY < -threshold;
+        inputState.backward = adjustedY > threshold;
+        inputState.left = adjustedX < -threshold;
+        inputState.right = adjustedX > threshold;
+    } else {
+        // Within dead zone - no movement
+        inputState.forward = false;
+        inputState.backward = false;
+        inputState.left = false;
+        inputState.right = false;
+    }
 }
 
 // Button handling
@@ -308,57 +571,55 @@ function setupButtons() {
     
     // Shoot button
     shootButton.addEventListener('touchstart', () => {
-        shootButton.classList.add('active');
-        inputState.shoot = true;
-        sendInput();
-        
-        if (navigator.vibrate) navigator.vibrate(25);
+        if (!settings.autoFire) {
+            shootButton.classList.add('active');
+            inputState.shoot = true;
+            vibrate('shoot');
+        }
     }, { passive: true });
     
     shootButton.addEventListener('touchend', () => {
-        shootButton.classList.remove('active');
-        inputState.shoot = false;
-        sendInput();
+        if (!settings.autoFire) {
+            shootButton.classList.remove('active');
+            inputState.shoot = false;
+        }
     }, { passive: true });
     
     // Special button
     specialButton.addEventListener('touchstart', () => {
         specialButton.classList.add('active');
         inputState.special = true;
-        sendInput();
-        
-        if (navigator.vibrate) navigator.vibrate(50);
+        vibrate('special');
     }, { passive: true });
     
     specialButton.addEventListener('touchend', () => {
         specialButton.classList.remove('active');
         inputState.special = false;
-        sendInput();
     }, { passive: true });
     
     // Mouse events for testing
     shootButton.addEventListener('mousedown', () => {
-        shootButton.classList.add('active');
-        inputState.shoot = true;
-        sendInput();
+        if (!settings.autoFire) {
+            shootButton.classList.add('active');
+            inputState.shoot = true;
+        }
     });
     
     shootButton.addEventListener('mouseup', () => {
-        shootButton.classList.remove('active');
-        inputState.shoot = false;
-        sendInput();
+        if (!settings.autoFire) {
+            shootButton.classList.remove('active');
+            inputState.shoot = false;
+        }
     });
     
     specialButton.addEventListener('mousedown', () => {
         specialButton.classList.add('active');
         inputState.special = true;
-        sendInput();
     });
     
     specialButton.addEventListener('mouseup', () => {
         specialButton.classList.remove('active');
         inputState.special = false;
-        sendInput();
     });
 }
 
@@ -391,7 +652,6 @@ function setupKeyboard() {
                 event.preventDefault();
                 break;
         }
-        sendInput();
     });
     
     document.addEventListener('keyup', (event) => {
@@ -419,7 +679,6 @@ function setupKeyboard() {
                 inputState.special = false;
                 break;
         }
-        sendInput();
     });
 }
 
@@ -451,6 +710,9 @@ function showError(message) {
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
+    // Load saved settings
+    loadSettings();
+    
     // Get room code from URL
     roomCode = roomCodeFromUrl;
     if (roomCode) {
@@ -462,6 +724,26 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Connect WebSocket
     connectWebSocket();
+    
+    // Start auto-fire if enabled
+    if (settings.autoFire) {
+        startAutoFire();
+    }
+    
+    // Auto-join if player ID is provided in URL (from redirect after game start)
+    if (playerIdFromUrl) {
+        // Set a default name and auto-connect
+        playerName = 'Player'; // Will be updated from server with actual name
+        document.getElementById('playerNameInput').value = playerName;
+        
+        // Wait for WebSocket to connect, then auto-join
+        const autoJoinInterval = setInterval(() => {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                clearInterval(autoJoinInterval);
+                connectToRoom();
+            }
+        }, 100);
+    }
     
     // Setup controls
     setupJoystick();
@@ -498,10 +780,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }, { passive: false });
     
-    // Send input every 50ms (20fps) when game is active
-    setInterval(() => {
-        if (gameActive) {
-            sendInput();
-        }
-    }, 50);
+    // Start optimized input loop using requestAnimationFrame
+    startInputLoop();
 });

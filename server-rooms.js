@@ -60,7 +60,7 @@ const server = http.createServer(async (req, res) => {
     }
     
     // Serve static files
-    let filePath = '.' + req.url;
+    let filePath = '.' + req.url.split('?')[0]; // Remove query parameters for file path
     if (filePath === './') {
         filePath = './lobby.html'; // Default to lobby page
     }
@@ -122,6 +122,7 @@ wss.on('connection', (ws) => {
     ws.on('message', (message) => {
         try {
             const data = JSON.parse(message);
+            console.log(`Received message from ${connectionId}:`, data.type, data);
             const connection = connections.get(connectionId);
             
             switch (data.type) {
@@ -210,10 +211,22 @@ function handleCreateRoom(connectionId, data) {
 }
 
 function handleJoinRoom(connectionId, data) {
+    console.log(`JOIN_ROOM request from ${connectionId}:`, {
+        roomCode: data.roomCode,
+        playerId: data.playerId,
+        playerName: data.playerName
+    });
+    
     const connection = connections.get(connectionId);
     const playerId = data.playerId || uuidv4();
     
     const joinResult = roomManager.joinRoom(data.roomCode, playerId, data.playerName);
+    
+    console.log(`JOIN_ROOM result:`, {
+        success: joinResult.success,
+        error: joinResult.error,
+        roomState: joinResult.room ? joinResult.room.state : 'no room'
+    });
     
     if (joinResult.success) {
         connection.type = 'player';

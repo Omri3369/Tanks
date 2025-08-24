@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Controller Optimization Test</title>
+    <style>
+        body {
+            font-family: monospace;
+            padding: 20px;
+            background: #222;
+            color: #0f0;
+        }
+        .metrics {
+            background: #111;
+            padding: 15px;
+            border: 1px solid #0f0;
+            margin-bottom: 20px;
+        }
+        .metric {
+            margin: 10px 0;
+            display: flex;
+            justify-content: space-between;
+        }
+        .value {
+            color: #ff0;
+            font-weight: bold;
+        }
+        .log {
+            background: #111;
+            border: 1px solid #0f0;
+            padding: 10px;
+            height: 300px;
+            overflow-y: auto;
+            white-space: pre;
+        }
+        button {
+            background: #0f0;
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+            font-family: monospace;
+            font-weight: bold;
+        }
+        button:hover {
+            background: #0a0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Controller Input Optimization Test</h1>
+    
+    <div class="metrics">
+        <h2>Performance Metrics</h2>
+        <div class="metric">
+            <span>Messages Sent:</span>
+            <span class="value" id="messageCount">0</span>
+        </div>
+        <div class="metric">
+            <span>Messages/Second:</span>
+            <span class="value" id="messagesPerSecond">0</span>
+        </div>
+        <div class="metric">
+            <span>Average Send Interval:</span>
+            <span class="value" id="avgInterval">0ms</span>
+        </div>
+        <div class="metric">
+            <span>Network Reduction:</span>
+            <span class="value" id="reduction">0%</span>
+        </div>
+        <div class="metric">
+            <span>Input Changes Detected:</span>
+            <span class="value" id="changeCount">0</span>
+        </div>
+        <div class="metric">
+            <span>FPS (requestAnimationFrame):</span>
+            <span class="value" id="fps">0</span>
+        </div>
+    </div>
+    
+    <div>
+        <button onclick="startTest()">Start Test</button>
+        <button onclick="stopTest()">Stop Test</button>
+        <button onclick="clearLog()">Clear Log</button>
+        <button onclick="simulateInput()">Simulate Input</button>
+        <button onclick="simulateNoChange()">Simulate No Change</button>
+    </div>
+    
+    <h3>Activity Log</h3>
+    <div class="log" id="log"></div>
+    
+    <script>
+        // Test harness for controller optimization
+        let testRunning = false;
+        let messagesSent = 0;
+        let changesDetected = 0;
+        let testStartTime = 0;
+        let lastFrameTime = 0;
+        let frameCount = 0;
+        let intervals = [];
+        let lastSendTime = 0;
+        
+        // Mock input state
+        let mockInputState = {
+            forward: false,
+            backward: false,
+            left: false,
+            right: false,
+            shoot: false,
+            special: false
+        };
+        
+        let previousMockState = { ...mockInputState };
+        
+        // Mock the optimization logic
+        const SEND_RATE = 16;
+        const THROTTLE_RATE = 50;
+        let animationId = null;
+        
+        function hasInputChanged() {
+            return Object.keys(mockInputState).some(key => 
+                mockInputState[key] !== previousMockState[key]
+            );
+        }
+        
+        function mockSendInput(force = false) {
+            const now = performance.now();
+            const timeSinceLastSend = now - lastSendTime;
+            
+            if ((force || hasInputChanged()) && timeSinceLastSend >= THROTTLE_RATE) {
+                messagesSent++;
+                changesDetected += hasInputChanged() ? 1 : 0;
+                
+                if (lastSendTime > 0) {
+                    intervals.push(timeSinceLastSend);
+                }
+                
+                log(`[${Math.floor(now)}ms] Message sent (Changed: ${hasInputChanged()}, Interval: ${Math.floor(timeSinceLastSend)}ms)`);
+                
+                previousMockState = { ...mockInputState };
+                lastSendTime = now;
+                
+                updateMetrics();
+            }
+        }
+        
+        function inputLoop(timestamp) {
+            if (!testRunning) return;
+            
+            frameCount++;
+            if (timestamp - lastFrameTime >= 1000) {
+                document.getElementById('fps').textContent = Math.round(frameCount * 1000 / (timestamp - lastFrameTime));
+                frameCount = 0;
+                lastFrameTime = timestamp;
+            }
+            
+            mockSendInput();
+            animationId = requestAnimationFrame(inputLoop);
+        }
+        
+        function startTest() {
+            if (testRunning) return;
+            
+            testRunning = true;
+            testStartTime = performance.now();
+            lastFrameTime = testStartTime;
+            messagesSent = 0;
+            changesDetected = 0;
+            intervals = [];
+            frameCount = 0;
+            
+            log('Test started - Optimization active');
+            animationId = requestAnimationFrame(inputLoop);
+            
+            // Update metrics every second
+            setInterval(() => {
+                if (testRunning) updateMetrics();
+            }, 1000);
+        }
+        
+        function stopTest() {
+            testRunning = false;
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+                animationId = null;
+            }
+            log('Test stopped');
+        }
+        
+        function updateMetrics() {
+            const elapsed = (performance.now() - testStartTime) / 1000;
+            const messagesPerSec = elapsed > 0 ? (messagesSent / elapsed).toFixed(1) : 0;
+            
+            // Calculate average interval
+            const avgInterval = intervals.length > 0 
+                ? (intervals.reduce((a, b) => a + b, 0) / intervals.length).toFixed(1)
+                : 0;
+            
+            // Calculate reduction vs constant 50ms sending
+            const expectedMessages = Math.floor(elapsed * 20); // 20 messages per second (50ms interval)
+            const reduction = expectedMessages > 0 
+                ? (100 - (messagesSent / expectedMessages * 100)).toFixed(1)
+                : 0;
+            
+            document.getElementById('messageCount').textContent = messagesSent;
+            document.getElementById('messagesPerSecond').textContent = messagesPerSec;
+            document.getElementById('avgInterval').textContent = avgInterval + 'ms';
+            document.getElementById('reduction').textContent = reduction + '%';
+            document.getElementById('changeCount').textContent = changesDetected;
+        }
+        
+        function simulateInput() {
+            // Simulate random input changes
+            const keys = Object.keys(mockInputState);
+            const randomKey = keys[Math.floor(Math.random() * keys.length)];
+            mockInputState[randomKey] = !mockInputState[randomKey];
+            
+            log(`Input changed: ${randomKey} = ${mockInputState[randomKey]}`);
+        }
+        
+        function simulateNoChange() {
+            log('Simulating period with no input changes...');
+            // Keep state the same
+        }
+        
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            logDiv.textContent += message + '\n';
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+        
+        function clearLog() {
+            document.getElementById('log').textContent = '';
+        }
+        
+        // Simulate realistic input patterns
+        setInterval(() => {
+            if (testRunning && Math.random() < 0.3) {
+                simulateInput();
+            }
+        }, 100);
+        
+        log('Controller optimization test ready');
+        log('- Input changes are detected before sending');
+        log('- RequestAnimationFrame provides smooth 60fps updates');
+        log('- Throttling prevents spam (50ms minimum between sends)');
+        log('- Network traffic reduced when no input changes occur');
+    </script>
+</body>
+</html>
