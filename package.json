@@ -4,8 +4,14 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "open index.html",
+    "start": "NODE_ENV=production node server.js",
+    "dev": "node server.js",
+    "server": "node server.js",
+    "server:network": "node server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "private": true
+  "private": true,
+  "dependencies": {
+    "ws": "^8.18.3"
+  }
 }
