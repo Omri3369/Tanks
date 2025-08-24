@@ -1,76 +1,182 @@
-# Destructible Wall Tiles Implementation Plan
+# WebSocket Controller Optimization Plan
 
-## Overview
-Creating destructible wall tiles that break after 3 hits with progressive damage visuals.
+## Performance Issues Identified
+- [x] Each control input sends individual WebSocket message (no batching)
+- [x] Joystick movement sends continuous updates without throttling
+- [x] No debouncing for rapid button presses
+- [x] Synchronous JSON parsing on every message
+- [x] Long reconnection delays (2-3 seconds)
 
-## Todo Items
+## Optimization Tasks
+- [ ] Implement message batching/queueing system
+- [ ] Add throttling to joystick movement updates (16ms / 60fps)
+- [ ] Implement input debouncing for button presses
+- [ ] Add requestAnimationFrame for smooth input handling
+- [ ] Reduce reconnection delay to 500ms
+- [ ] Add binary message format option for lower overhead
+- [ ] Implement delta compression for movement states
 
-### Research Phase
-- [ ] 1. Analyze existing wall/obstacle system in game.js
-- [ ] 2. Review collision detection for walls
-- [ ] 3. Check current terrain generation for wall placement
+## Implementation Strategy
+1. Add input queue that batches multiple actions
+2. Send updates at fixed 60fps rate using requestAnimationFrame
+3. Only send state changes (deltas) instead of full state
+4. Use throttling on joystick to limit update frequency
+5. Optimize WebSocket server message handling
 
-### Implementation Phase
-- [ ] 4. Create destructible wall class/properties (health, damage states)
-- [ ] 5. Add progressive damage visuals (3 states: intact, damaged, heavily damaged)
-- [ ] 6. Implement hit detection and damage tracking for walls
-- [ ] 7. Add wall destruction logic after 3 hits
-- [ ] 8. Update bullet collision to apply damage to destructible walls
-- [ ] 9. Add visual/particle effects for wall destruction
+---
 
-### Testing Phase
-- [ ] 10. Test wall damage progression
-- [ ] 11. Verify collision removal after destruction
-- [ ] 12. Check performance with multiple destructible walls
+# Game.js Modularization Plan
 
-## Design Decisions
+## Progress Summary
+**Completed:**
+- ✅ Created modular directory structure under `src/`
+- ✅ Extracted effects classes (Particle, SmokeParticle, Explosion) to `src/game/effects/effects-bundle.js`
+- ✅ Extracted obstacle classes (Wall, DestructibleWall, Gate) to `src/game/obstacles/obstacles-bundle.js`
+- ✅ Created utility modules (constants.js, helpers.js) in `src/utils/`
+- ✅ Maintained backward compatibility using bundle approach with global exposure
 
-### Wall Properties
-- **Health Points**: 3 hits to destroy
-- **Damage States**: 
-  - State 1: Intact (3 HP)
-  - State 2: Cracked (2 HP)
-  - State 3: Heavily damaged (1 HP)
-  - State 4: Destroyed (0 HP - removed)
+**Current Status:** 
+- Successfully extracted ~900+ lines of code from game.js (reduced from ~5400 to ~4935 lines)
+- Game remains fully functional with new modular structure
+- Using compatibility bundles to allow gradual migration
+- Extracted: Particle, SmokeParticle, Explosion, RingOfFire, Wall, DestructibleWall, Gate, Mine, Target, Drone
 
-### Visual Design
-- **Progressive damage**: Visual cracks/damage increase with each hit
-- **Destruction effect**: Particles/debris when wall breaks
-- **Color indication**: Darker/more damaged appearance as health decreases
+## Current Structure Analysis
+The game.js file is approximately 5400+ lines and contains all game logic in a single file. This needs to be split into logical modules for better maintainability.
 
-## Review Section
+## Identified Components
 
-### Changes Made
-1. **Created DestructibleWall class** - Extended Wall class with health system (3 HP)
-2. **Added progressive damage visuals**:
-   - Health bar indicator above damaged walls
-   - Progressive crack patterns (more cracks appear as damage increases)
-   - Damage overlay that darkens the wall texture
-3. **Implemented damage system**:
-   - `takeDamage()` method handles hit detection and health reduction
-   - Creates particle effects on each hit (brown colored debris)
-   - Triggers screen shake for impact feedback
-4. **Wall destruction mechanics**:
-   - After 3 hits, wall is destroyed
-   - Creates 20 debris particles on destruction
-   - Removes wall from collision array and obstacle tiles
-5. **Updated bullet collision**:
-   - Bullets now check if wall is destructible
-   - Normal bullets damage and bounce off destructible walls
-   - Piercing bullets damage walls while passing through
-   - Explosive bullets damage walls and explode
-   - Bullets continue through if wall is destroyed
-6. **Modified terrain generation**:
-   - 50% of generated walls are now destructible
-   - Mix of regular and destructible walls for varied gameplay
-7. **Added screen shake system**:
-   - Camera shake effect on wall impacts
-   - Decay-based shake animation for smooth effect
+### Core Classes (Lines 120-3346)
+- [ ] Tank class (lines 120-1412) - Player/AI tank logic
+- [ ] Bullet class (lines 1413-1931) - Projectile system
+- [x] Wall & DestructibleWall classes (lines 1932-2139) - Obstacle system ✅ Moved to src/game/obstacles/obstacles-bundle.js
+- [x] Gate class (lines 2140-2346) - Gate mechanics ✅ Moved to src/game/obstacles/obstacles-bundle.js
+- [ ] PowerUp class (lines 2347-2565) - Power-up system
+- [x] Particle & SmokeParticle classes (lines 2566-2634) - Visual effects ✅ Moved to src/game/effects/effects-bundle.js
+- [x] Explosion class (lines 2635-2713) - Explosion effects ✅ Moved to src/game/effects/effects-bundle.js
+- [x] Mine class (lines 2714-2816) - Mine mechanics ✅ Moved to src/game/entities/entities-bundle.js
+- [x] Target class (lines 2817-2981) - Target system ✅ Moved to src/game/entities/entities-bundle.js
+- [x] Drone class (lines 2982-3139) - Drone mechanics ✅ Moved to src/game/entities/entities-bundle.js
+- [x] RingOfFire class (lines 3140-3346) - Battle royale ring ✅ Moved to src/game/effects/effects-bundle.js
 
-### How It Works
-- Destructible walls spawn with 3 health points
-- Each bullet hit reduces health by 1
-- Visual feedback shows damage progression (cracks, darkening, health bars)
-- After 3 hits, wall breaks with particle explosion
-- Destroyed walls are removed from collision detection
-- Screen shakes on each impact for better game feel
+### Game Systems
+- [ ] Terrain system (lines 4471-5393) - Terrain generation and rendering
+- [ ] Camera system (lines 79-91, 3546-3586) - Camera and zoom effects
+- [ ] Input handling (already separate in InputHandler.js)
+- [ ] AI system (already separate in AIBehavior.js)
+- [ ] Tunnel/teleport system (lines 45-47, 4781-4863)
+
+### Core Game Logic
+- [ ] Game initialization (lines 3596-3707)
+- [ ] Game loop and update (lines 3708-3940, 4218-4241)
+- [ ] Drawing/rendering (lines 3999-4217)
+- [ ] Round management (lines 3941-3981)
+- [ ] Score management (lines 3470-3524)
+- [ ] Settings management (lines 4242-4464)
+
+## Proposed Module Structure
+
+```
+src/
+├── game/
+│   ├── entities/
+│   │   ├── Tank.js
+│   │   ├── Bullet.js
+│   │   ├── PowerUp.js
+│   │   ├── Mine.js
+│   │   ├── Drone.js
+│   │   └── Target.js
+│   ├── obstacles/
+│   │   ├── Wall.js
+│   │   ├── DestructibleWall.js
+│   │   └── Gate.js
+│   ├── effects/
+│   │   ├── Particle.js
+│   │   ├── Explosion.js
+│   │   └── RingOfFire.js
+│   ├── terrain/
+│   │   ├── TerrainGenerator.js
+│   │   ├── TerrainRenderer.js
+│   │   └── TunnelSystem.js
+│   ├── systems/
+│   │   ├── Camera.js
+│   │   ├── ScoreManager.js
+│   │   ├── SettingsManager.js
+│   │   └── RoundManager.js
+│   ├── core/
+│   │   ├── GameLoop.js
+│   │   ├── GameState.js
+│   │   └── Renderer.js
+│   ├── InputHandler.js (existing)
+│   ├── RemoteInputHandler.js (existing)
+│   └── AIBehavior.js (existing)
+├── utils/
+│   ├── constants.js
+│   └── helpers.js
+└── main.js (entry point)
+```
+
+## Implementation Steps
+
+### Phase 1: Setup Module Infrastructure
+- [x] Create directory structure ✅ Complete
+- [x] Set up module system (using script tags with bundles for now) ✅ Complete
+- [x] Create constants.js for shared constants ✅ Created at src/utils/constants.js
+- [x] Create helpers.js for utility functions ✅ Created at src/utils/helpers.js
+
+### Phase 2: Extract Entity Classes
+- [ ] Extract Tank class with all methods
+- [ ] Extract Bullet class
+- [ ] Extract PowerUp class
+- [ ] Extract Mine, Drone, Target classes
+- [ ] Update imports/exports
+
+### Phase 3: Extract Obstacle Classes
+- [x] Extract Wall and DestructibleWall classes ✅ Complete
+- [x] Extract Gate class ✅ Complete
+- [x] Update imports/exports ✅ Using bundle approach
+
+### Phase 4: Extract Effect Classes
+- [x] Extract Particle and SmokeParticle classes ✅ Complete
+- [x] Extract Explosion class ✅ Complete
+- [ ] Extract RingOfFire class
+- [x] Update imports/exports ✅ Using bundle approach
+
+### Phase 5: Extract Terrain System
+- [ ] Extract terrain generation functions
+- [ ] Extract terrain rendering functions
+- [ ] Extract tunnel system logic
+- [ ] Update imports/exports
+
+### Phase 6: Extract Game Systems
+- [ ] Extract camera system
+- [ ] Extract score management
+- [ ] Extract settings management
+- [ ] Extract round management
+- [ ] Update imports/exports
+
+### Phase 7: Extract Core Game Logic
+- [ ] Create GameState class for state management
+- [ ] Create GameLoop class for update/draw cycle
+- [ ] Create Renderer class for main rendering logic
+- [ ] Update imports/exports
+
+### Phase 8: Create Main Entry Point
+- [ ] Create main.js as new entry point
+- [ ] Wire up all modules
+- [ ] Update HTML to use new entry point
+- [ ] Test everything works
+
+## Benefits of This Structure
+1. **Maintainability**: Each module has a single responsibility
+2. **Testability**: Individual modules can be tested in isolation
+3. **Reusability**: Components can be reused easily
+4. **Scalability**: New features can be added without touching core code
+5. **Performance**: Only load what's needed, better tree-shaking
+6. **Collaboration**: Multiple developers can work on different modules
+
+## Notes
+- Keep backward compatibility during migration
+- Test after each extraction phase
+- Maintain git history with meaningful commits
+- Consider using a build tool (webpack/rollup) if not already in use

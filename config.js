@@ -43,7 +43,6 @@ const CONFIG = {
     
     // Game Mechanics
     GRACE_PERIOD: 180, // frames (3 seconds)
-    COLLECTIBLE_RESPAWN_TIME: 150, // frames
     AI_SHOOT_COOLDOWN_MIN: 60,
     AI_SHOOT_COOLDOWN_MAX: 100,
     AI_MIN_SHOOT_DISTANCE: 80,
@@ -79,9 +78,6 @@ const CONFIG = {
     
     // Game Counts
     POWERUP_COUNT: 5,
-    COLLECTIBLE_COUNT: 8, // More collectibles on the map
-    COLLECTIBLE_RESPAWN_TIME: 300, // 5 seconds respawn
-    COLLECTIBLE_RANDOM_SPAWN: true, // Spawn randomly during game
     AI_TANK_COUNT: 20,
     
     // Training Mode Settings

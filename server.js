@@ -3,8 +3,8 @@ const WebSocket = require('ws');
 const fs = require('fs');
 const path = require('path');
 
-const PORT = 8080;
-const WS_PORT = 8081;
+const PORT = process.env.PORT || 8080;
+const WS_PORT = process.env.WS_PORT || 8081;
 
 // Create HTTP server for serving static files
 const server = http.createServer((req, res) => {
@@ -54,7 +54,10 @@ const server = http.createServer((req, res) => {
 });
 
 // Create WebSocket server
-const wss = new WebSocket.Server({ port: WS_PORT });
+// In production, use the same port for both HTTP and WebSocket
+const wss = process.env.NODE_ENV === 'production' 
+    ? new WebSocket.Server({ server })
+    : new WebSocket.Server({ port: WS_PORT });
 
 let gameClient = null;
 let controllerClients = new Set();
@@ -121,8 +124,37 @@ wss.on('connection', (ws) => {
     });
 });
 
-server.listen(PORT, () => {
-    console.log(`HTTP Server running at http://localhost:${PORT}/`);
-    console.log(`WebSocket Server running on port ${WS_PORT}`);
-    console.log(`Controller available at http://localhost:${PORT}/controller.html`);
+// Get local IP address
+const os = require('os');
+function getLocalIP() {
+    const interfaces = os.networkInterfaces();
+    for (const name of Object.keys(interfaces)) {
+        for (const iface of interfaces[name]) {
+            if (iface.family === 'IPv4' && !iface.internal) {
+                return iface.address;
+            }
+        }
+    }
+    return 'localhost';
+}
+
+const localIP = getLocalIP();
+
+// Get host to bind to
+const host = process.env.NODE_ENV === 'production' ? '0.0.0.0' : '0.0.0.0';
+
+server.listen(PORT, host, () => {
+    console.log('\n=== Tanks Game Server Started ===' );
+    console.log(`\nLocal access:`);
+    console.log(`  Game: http://localhost:${PORT}/game.html`);
+    console.log(`  Controller: http://localhost:${PORT}/controller.html`);
+    console.log(`\nNetwork access (share with friends on same WiFi):`);
+    console.log(`  Game: http://${localIP}:${PORT}/game.html`);
+    console.log(`  Controller: http://${localIP}:${PORT}/controller.html`);
+    if (process.env.NODE_ENV !== 'production') {
+        console.log(`\nWebSocket Server running on port ${WS_PORT}`);
+    } else {
+        console.log('\nWebSocket Server running on same port as HTTP');
+    }
+    console.log('\n==================================\n');
 });
