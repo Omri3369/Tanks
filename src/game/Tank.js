@@ -246,7 +246,7 @@ class Tank {
     }
     
     
-    destroy(killer = null) {
+    destroy(killer = null, method = 'killed') {
         this.alive = false;
         
         // Track kills if there's a killer and it's not self
@@ -260,6 +260,17 @@ class Tank {
             const killsElement = document.getElementById(`kills${killer.playerNum}`);
             if (killsElement) {
                 killsElement.textContent = kills[`player${killer.playerNum}`];
+            }
+            
+            // Add to kill log
+            if (typeof addKillLogEntry === 'function') {
+                addKillLogEntry(killer.playerNum, this.playerNum, method);
+            }
+        } else {
+            // Death without killer (fire, etc.)
+            if (typeof addKillLogEntry === 'function') {
+                const victimName = this.playerNum ? `Player ${this.playerNum}` : 'AI Tank';
+                addKillLogEntry(null, victimName, method);
             }
         }
         

@@ -229,36 +229,26 @@ class RingOfFire {
         
         // Check if tanks are outside the ring
         if (this.active) {
-            this.damageTimer++;
-            if (this.damageTimer > 60) { // Damage every second (60 frames)
-                this.damageTimer = 0;
-                tanks.forEach(tank => {
+            // Check every frame for immediate fire death
+            tanks.forEach(tank => {
                     if (tank.alive) {
                         const distance = Math.sqrt(
                             (tank.x - this.centerX) ** 2 + 
                             (tank.y - this.centerY) ** 2
                         );
                         if (distance > this.radius - 20) {
-                            // Tank is in the fire, take damage
-                            // Create fire particles for damage effect
-                            for (let i = 0; i < 5; i++) {
+                            // Tank is in the fire - instant kill
+                            
+                            // Create fire particles for effect
+                            for (let i = 0; i < 10; i++) {
                                 particles.push(new Particle(tank.x, tank.y, '#FF4500'));
                             }
                             
-                            // Deal continuous fire damage
-                            if (typeof tank.takeDamage === 'function') {
-                                tank.takeDamage(1); // Deal 1 damage per frame while in fire
-                            } else {
-                                // Fallback for older tank implementations
-                                tank.health -= 1;
-                                if (tank.health <= 0) {
-                                    tank.destroy();
-                                }
-                            }
+                            // Kill the tank immediately by fire
+                            tank.destroy(null, 'fire');
                         }
                     }
                 });
-            }
         }
     }
     

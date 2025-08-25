@@ -8,6 +8,7 @@ let TANK_TURN_SPEED;
 let canvas, ctx;
 let tanks = [];
 let bullets = [];
+let killLog = []; // Array to store kill log entries
 let walls = [];
 let gates = [];
 let powerUps = [];
@@ -80,6 +81,63 @@ let shootBullet = null;
 // Bullet is defined in src/game/entities/entities-bundle.js
 
 // Function to initialize globals after modules are loaded
+// Kill Log System
+function addKillLogEntry(killer, victim, method = 'killed') {
+    const timestamp = new Date().toLocaleTimeString();
+    
+    let entry = {
+        killer: killer,
+        victim: victim,
+        method: method,
+        timestamp: timestamp
+    };
+    
+    // Add to kill log array
+    killLog.unshift(entry);
+    
+    // Keep only last 20 entries
+    if (killLog.length > 20) {
+        killLog.pop();
+    }
+    
+    // Update UI
+    updateKillLogDisplay();
+}
+
+function updateKillLogDisplay() {
+    const killLogElement = document.getElementById('killLogEntries');
+    if (!killLogElement) return;
+    
+    killLogElement.innerHTML = '';
+    
+    killLog.forEach((entry, index) => {
+        const entryDiv = document.createElement('div');
+        entryDiv.className = 'kill-entry';
+        
+        let html = '';
+        
+        if (entry.method === 'fire') {
+            // Fire kill - no killer
+            html = `<span class="fire-kill">🔥 ${entry.victim}</span> <span class="method">burned to death</span>`;
+        } else {
+            // Regular kill
+            const killerName = entry.killer ? `Player ${entry.killer}` : 'Unknown';
+            const victimName = `Player ${entry.victim}`;
+            html = `<span class="killer">${killerName}</span> <span class="method">${entry.method}</span> <span class="victim">${victimName}</span>`;
+        }
+        
+        html += `<small style="margin-left: auto; color: #666;">${entry.timestamp}</small>`;
+        
+        entryDiv.innerHTML = html;
+        killLogElement.appendChild(entryDiv);
+    });
+}
+
+function clearKillLog() {
+    killLog = [];
+    updateKillLogDisplay();
+}
+
 function initializeGlobals() {
     // Initialize game constants from CONFIG
     TANK_SPEED = CONFIG.TANK_SPEED;
@@ -223,8 +281,8 @@ function generateSafeSpawnPosition() {
     let validPosition = false;
     let x, y;
     let attempts = 0;
-    const maxAttempts = 100;
-    const minDistanceFromUsedPositions = 100; // Minimum distance from any previously used spawn position
+    const maxAttempts = 200; // Increased attempts to find valid position
+    const minDistanceFromUsedPositions = 80; // Reduced minimum distance for easier spawning
     
     console.log(`[SPAWN] Starting spawn generation. ObstacleTiles: ${obstacleTiles ? obstacleTiles.length : 0}, Walls: ${walls ? walls.length : 0}`);
     
@@ -297,7 +355,7 @@ function generateSafeSpawnPosition() {
             for (let tank of tanks) {
                 if (tank && tank.alive) {
                     const distance = Math.sqrt((x - tank.x) ** 2 + (y - tank.y) ** 2);
-                    if (distance < 150) {  // Minimum distance between tanks
+                    if (distance < 100) {  // Reduced minimum distance between tanks
                         validPosition = false;
                         break;
                     }
@@ -313,22 +371,34 @@ function generateSafeSpawnPosition() {
     if (!validPosition) {
         console.warn(`[SPAWN] Could not find valid spawn position after ${maxAttempts} attempts, trying fallback`);
         
-        // Try 20 more times with just basic obstacle checking
-        for (let i = 0; i < 20; i++) {
-            x = Math.random() * (canvas.width - 200) + 100;
-            y = Math.random() * (canvas.height - 200) + 100;
+        // Try 50 more times with just basic obstacle checking but wider range
+        for (let i = 0; i < 50; i++) {
+            x = Math.random() * (canvas.width - 100) + 50;
+            y = Math.random() * (canvas.height - 100) + 50;
             
-            // Just check center position for obstacles
-            const tileX = Math.floor(x / TILE_SIZE);
-            const tileY = Math.floor(y / TILE_SIZE);
+            // Check center position and immediate surroundings for obstacles
+            const tankRadius = TANK_SIZE;
+            const checkPoints = [
+                { dx: 0, dy: 0 },           // Center
+                { dx: -tankRadius/2, dy: 0 },  // Left
+                { dx: tankRadius/2, dy: 0 },   // Right
+                { dx: 0, dy: -tankRadius/2 },  // Top
+                { dx: 0, dy: tankRadius/2 }    // Bottom
+            ];
             
             let blocked = false;
-            for (let tile of obstacleTiles) {
-                if (tile && tile.x === tileX && tile.y === tileY &&
-                    (tile.type === 'water' || tile.type === 'wall')) {
-                    blocked = true;
-                    break;
+            for (let point of checkPoints) {
+                const tileX = Math.floor((x + point.dx) / TILE_SIZE);
+                const tileY = Math.floor((y + point.dy) / TILE_SIZE);
+                
+                for (let tile of obstacleTiles) {
+                    if (tile && tile.x === tileX && tile.y === tileY &&
+                        (tile.type === 'water' || tile.type === 'wall')) {
+                        blocked = true;
+                        break;
+                    }
                 }
+                if (blocked) break;
             }
             
             if (!blocked) {
@@ -338,11 +408,48 @@ function generateSafeSpawnPosition() {
             }
         }
         
-        // Last resort - just use a random position
+        // Last resort - find ANY free tile systematically
         if (!validPosition) {
-            console.error(`[SPAWN] CRITICAL: Using random position, may be on obstacle!`);
-            x = Math.random() * (canvas.width - 200) + 100;
-            y = Math.random() * (canvas.height - 200) + 100;
+            console.error(`[SPAWN] CRITICAL: Searching for any free tile systematically`);
+            
+            // Create a grid of all tiles
+            const gridWidth = Math.ceil(canvas.width / TILE_SIZE);
+            const gridHeight = Math.ceil(canvas.height / TILE_SIZE);
+            const freeTiles = [];
+            
+            // Find all free tiles
+            for (let gx = 1; gx < gridWidth - 1; gx++) {
+                for (let gy = 1; gy < gridHeight - 1; gy++) {
+                    let tileBlocked = false;
+                    
+                    // Check if this tile is blocked
+                    for (let tile of obstacleTiles) {
+                        if (tile && tile.x === gx && tile.y === gy &&
+                            (tile.type === 'water' || tile.type === 'wall')) {
+                            tileBlocked = true;
+                            break;
+                        }
+                    }
+                    
+                    if (!tileBlocked) {
+                        freeTiles.push({ x: gx, y: gy });
+                    }
+                }
+            }
+            
+            if (freeTiles.length > 0) {
+                // Pick a random free tile
+                const randomTile = freeTiles[Math.floor(Math.random() * freeTiles.length)];
+                x = randomTile.x * TILE_SIZE + TILE_SIZE / 2;
+                y = randomTile.y * TILE_SIZE + TILE_SIZE / 2;
+                validPosition = true;
+                console.log(`[SPAWN] Found free tile at grid ${randomTile.x},${randomTile.y} -> position ${x.toFixed(0)},${y.toFixed(0)}`);
+            } else {
+                // Absolutely no free tiles - this should never happen
+                console.error(`[SPAWN] FATAL: No free tiles found! Using center of map`);
+                x = canvas.width / 2;
+                y = canvas.height / 2;
+            }
         }
     }
     
@@ -717,7 +824,13 @@ function update() {
                                     }
                                     return false; // Destroy bullet but not tank
                                 } else {
-                                    tank.destroy(bullet.owner);
+                                    // Determine kill method based on bullet type
+                                    let killMethod = 'killed';
+                                    if (bullet.type === 'rocket') killMethod = 'blasted';
+                                    else if (bullet.type === 'laser') killMethod = 'vaporized';
+                                    else if (bullet.type === 'scatter') killMethod = 'riddled';
+                                    
+                                    tank.destroy(bullet.owner, killMethod);
                                     return false;
                                 }
                             }
@@ -832,6 +945,8 @@ function update() {
 }
 
 function resetRound() {
+    // Clear kill log for new round
+    clearKillLog();
     // Clear all bullets, particles, explosions and mines
     bullets = [];
     particles = [];

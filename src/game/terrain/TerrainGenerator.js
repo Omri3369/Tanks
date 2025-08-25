@@ -188,7 +188,7 @@ class TerrainGenerator {
         const gridHeight = Math.ceil(canvas.height / TILE_SIZE);
         
         // Generate walls with wrapping support and varied sizes - balanced for gameplay
-        const wallCount = Math.floor(Math.random() * 7) + 5; // 5-11 walls (reduced count)
+        const wallCount = Math.floor(Math.random() * 5) + 3; // 3-7 walls (reduced count for better spawning)
         for (let i = 0; i < wallCount; i++) {
             // Random wall lengths - balanced to not block too much space
             const sizeCategory = Math.random();
@@ -219,37 +219,39 @@ class TerrainGenerator {
                 for (let j = 0; j < wallLength; j++) {
                     const tileX = (startX + j) % gridWidth;
                     
-                    // Check if water exists at this position
-                    const waterExists = this.obstacleTiles.find(tile => 
-                        tile.x === tileX && tile.y === startY && tile.type === 'water'
+                    // Allow walls to be placed anywhere (including on water)
+                    // Remove any existing obstacle at this position first
+                    const existingIndex = this.obstacleTiles.findIndex(tile => 
+                        tile.x === tileX && tile.y === startY
                     );
+                    if (existingIndex !== -1) {
+                        this.obstacleTiles.splice(existingIndex, 1);
+                    }
                     
-                    if (!waterExists) {
-                        this.obstacleTiles.push({
-                            x: tileX,
-                            y: startY,
-                            type: 'wall'
-                        });
-                        
-                        // Add to walls array for collision detection
-                        // 50% chance for destructible wall
-                        const isDestructible = Math.random() < 0.5;
-                        if (typeof walls !== 'undefined') {
-                            walls.push(isDestructible ? 
-                                new DestructibleWall(
-                                    tileX * TILE_SIZE,
-                                    startY * TILE_SIZE,
-                                    TILE_SIZE,
-                                    TILE_SIZE
-                                ) :
-                                new Wall(
-                                    tileX * TILE_SIZE,
-                                    startY * TILE_SIZE,
-                                    TILE_SIZE,
-                                    TILE_SIZE
-                                )
-                            );
-                        }
+                    this.obstacleTiles.push({
+                        x: tileX,
+                        y: startY,
+                        type: 'wall'
+                    });
+                    
+                    // Add to walls array for collision detection
+                    // 50% chance for destructible wall
+                    const isDestructible = Math.random() < 0.5;
+                    if (typeof walls !== 'undefined') {
+                        walls.push(isDestructible ? 
+                            new DestructibleWall(
+                                tileX * TILE_SIZE,
+                                startY * TILE_SIZE,
+                                TILE_SIZE,
+                                TILE_SIZE
+                            ) :
+                            new Wall(
+                                tileX * TILE_SIZE,
+                                startY * TILE_SIZE,
+                                TILE_SIZE,
+                                TILE_SIZE
+                            )
+                        );
                     }
                 }
             } else {
@@ -257,44 +259,46 @@ class TerrainGenerator {
                 for (let j = 0; j < wallLength; j++) {
                     const tileY = (startY + j) % gridHeight;
                     
-                    // Check if water exists at this position
-                    const waterExists = this.obstacleTiles.find(tile => 
-                        tile.x === startX && tile.y === tileY && tile.type === 'water'
+                    // Allow walls to be placed anywhere (including on water)
+                    // Remove any existing obstacle at this position first
+                    const existingIndex = this.obstacleTiles.findIndex(tile => 
+                        tile.x === startX && tile.y === tileY
                     );
+                    if (existingIndex !== -1) {
+                        this.obstacleTiles.splice(existingIndex, 1);
+                    }
                     
-                    if (!waterExists) {
-                        this.obstacleTiles.push({
-                            x: startX,
-                            y: tileY,
-                            type: 'wall'
-                        });
-                        
-                        // Add to walls array for collision detection
-                        // 50% chance for destructible wall
-                        const isDestructible = Math.random() < 0.5;
-                        if (typeof walls !== 'undefined') {
-                            walls.push(isDestructible ?
-                                new DestructibleWall(
-                                    startX * TILE_SIZE,
-                                    tileY * TILE_SIZE,
-                                    TILE_SIZE,
-                                    TILE_SIZE
-                                ) :
-                                new Wall(
-                                    startX * TILE_SIZE,
-                                    tileY * TILE_SIZE,
-                                    TILE_SIZE,
-                                    TILE_SIZE
-                                )
-                            );
-                        }
+                    this.obstacleTiles.push({
+                        x: startX,
+                        y: tileY,
+                        type: 'wall'
+                    });
+                    
+                    // Add to walls array for collision detection
+                    // 50% chance for destructible wall
+                    const isDestructible = Math.random() < 0.5;
+                    if (typeof walls !== 'undefined') {
+                        walls.push(isDestructible ?
+                            new DestructibleWall(
+                                startX * TILE_SIZE,
+                                tileY * TILE_SIZE,
+                                TILE_SIZE,
+                                TILE_SIZE
+                            ) :
+                            new Wall(
+                                startX * TILE_SIZE,
+                                tileY * TILE_SIZE,
+                                TILE_SIZE,
+                                TILE_SIZE
+                            )
+                        );
                     }
                 }
             }
         }
         
         // Generate water bodies - balanced for gameplay
-        const waterBodyCount = Math.floor(Math.random() * 2) + 2; // 2-3 water bodies
+        const waterBodyCount = Math.floor(Math.random() * 2) + 1; // 1-2 water bodies (reduced for better spawning)
         const waterBodies = []; // Track water body locations
         
         for (let i = 0; i < waterBodyCount; i++) {

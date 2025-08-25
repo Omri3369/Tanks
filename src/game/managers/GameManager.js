@@ -267,6 +267,30 @@ class GameManager {
             }
         }
         
+        // Check obstacle tiles (water and wall tiles)
+        if (window.obstacleTiles && window.obstacleTiles.length > 0) {
+            const tankRadius = radius;
+            const checkPoints = [
+                { dx: 0, dy: 0 },           // Center
+                { dx: -tankRadius, dy: 0 },  // Left
+                { dx: tankRadius, dy: 0 },   // Right
+                { dx: 0, dy: -tankRadius },  // Top
+                { dx: 0, dy: tankRadius },   // Bottom
+            ];
+            
+            for (let point of checkPoints) {
+                const checkX = Math.floor((x + point.dx) / window.TILE_SIZE);
+                const checkY = Math.floor((y + point.dy) / window.TILE_SIZE);
+                
+                for (let tile of window.obstacleTiles) {
+                    if (tile && tile.x === checkX && tile.y === checkY &&
+                        (tile.type === 'water' || tile.type === 'wall')) {
+                        return true;
+                    }
+                }
+            }
+        }
+        
         // Check tanks
         for (let tank of this.tanks) {
             const dist = Math.sqrt((x - tank.x) ** 2 + (y - tank.y) ** 2);
